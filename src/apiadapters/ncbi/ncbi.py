@@ -149,7 +149,7 @@ class NCBIAdapter(APIAdapter):
         else:
             return etree.tostring(body, method="c14n2").decode("utf-8")
 
-    async def fetch_full_text_and_abstract(self, pmc_id: str) -> dict[str, str]:
+    async def fetch_fulltext_and_abstract(self, pmc_id: str) -> dict[str, str]:
         """Retrieve full text and abstract for a given PMC ID.
 
         :param pmc_id: PubMed Central ID for retrieval.
