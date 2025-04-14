@@ -1,6 +1,5 @@
 import time
 import httpx
-from log import stderr_logger
 from asyncio import Semaphore, sleep
 from types import TracebackType
 from typing import Any, Self
@@ -12,14 +11,6 @@ from functools import wraps
 def retry_if_too_many_requests(func: Callable) -> Callable:
 
     async def handler(exception: Exception, retry_count):
-        logger = stderr_logger()
-        logger.debug("Retrying")
-        msg = (
-            f"retry_count: {retry_count}. "
-            f"Waiting for {30 * (2**retry_count)} secs."
-        )
-        logger.debug(msg)
-
         if isinstance(exception, httpx.HTTPStatusError):
             if (
                 hasattr(exception, "response")
@@ -62,7 +53,6 @@ class APIAdapter:
         self.semaphore = Semaphore(rate_limit)
         self.last_request_time: dict[str, float] = {}
         self.min_delay = 0.4
-        self.logger = stderr_logger()
 
     async def __aenter__(self) -> Self:
         return self

@@ -5,9 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11, <4"
 dependencies = [
-    "d3tools",
     "httpx>=0.28.1",
+    "log",
     "lxml>=5.3.2",
+    "xmlparser",
 ]
 
 [build-system]
@@ -15,4 +16,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-d3tools = { workspace = true }
+xmlparser = { workspace = true }
+log = { workspace = true }

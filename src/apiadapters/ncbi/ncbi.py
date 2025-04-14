@@ -8,9 +8,39 @@ import urllib
 from collections.abc import Iterable
 from typing import AsyncIterator
 
+import xmlparser
 from log import logger
 from lxml import etree
 from apiadapters import APIAdapter
+
+
+def extract_abstract(article: etree._Element, clean=False) -> str:
+    """Extract the abstract from `article`"""
+    try:
+        abstract = article.xpath("//*[name()='abstract']")[0]
+    except IndexError:
+        return ""
+    else:
+        if clean:
+            abstract = xmlparser.clean_namespaces(abstract)
+        return stringify(abstract)
+
+
+def extract_body(article: etree._Element, clean=False) -> str:
+    """Extract the abstract from `article`"""
+    try:
+        body = article.xpath("//*[name()='body']")[0]
+    except IndexError:
+        return ""
+    else:
+        if clean:
+            body = xmlparser.clean_namespaces(body)
+        return stringify(body)
+
+
+def stringify(xml: etree._Element) -> str:
+    """Convert `xml` to string"""
+    return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
 class NCBIAdapter(APIAdapter):
@@ -109,13 +139,7 @@ class NCBIAdapter(APIAdapter):
         :param pmc_id: PubMed Central id for full text retrieval.
         :return: serialized full text for the given `pmc_id`.
         """
-        url = (
-            "https://www.ncbi.nlm.nih.gov/pmc/oai/oai.cgi"
-            "?verb=GetRecord"
-            f"&identifier=oai:pubmedcentral.nih.gov:{pmc_id}"
-            "&metadataPrefix=pmc"
-        )
-        root = await self.request(url)
+        root = await self.pmc_record(pmc_id)
 
         try:
             body = root.xpath("//*[name()='body']")[0]
@@ -124,6 +148,34 @@ class NCBIAdapter(APIAdapter):
             return ""
         else:
             return etree.tostring(body, method="c14n2").decode("utf-8")
+
+    async def fetch_full_text_and_abstract(self, pmc_id: str) -> dict[str, str]:
+        """Retrieve full text and abstract for a given PMC ID.
+
+        :param pmc_id: PubMed Central ID for retrieval.
+        :return: dict containing abstract and full text for the
+        requested ID.
+        """
+        root = await self.pmc_record(pmc_id)
+
+        return {
+            "abstract": extract_abstract(root),
+            "body": extract_body(root),
+        }
+
+    async def pmc_record(self, pmc_id: str) -> etree._Element:
+        """Retrieve the PMC_OAI record for a particular PMC ID.
+
+        :param pmc_id: PubMed Central ID for record retrieval.
+        :return: _Element containing the record.
+        """
+        url = (
+            "https://www.ncbi.nlm.nih.gov/pmc/oai/oai.cgi"
+            "?verb=GetRecord"
+            f"&identifier=oai:pubmedcentral.nih.gov:{pmc_id}"
+            "&metadataPrefix=pmc"
+        )
+        return await self.request(url)
 
     async def fetch_fulltext_articles(
         self,

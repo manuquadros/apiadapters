@@ -1,0 +1,14 @@
+      <abstract>
+        <sec>
+          <title>Background</title>
+          <p><italic>Bacillus subtilis </italic>glucokinase (GlcK) (GenBank NP_390365) is an ATP-dependent kinase that phosphorylates glucose to glucose 6-phosphate. The GlcK protein has very low sequence identity (13.7%) to the <italic>Escherichia coli </italic>glucokinase (Glk) (GenBank P46880) and some other glucokinases (EC 2.7.1.2), yet glucose is merely its substrate. Our lab has previously isolated and characterized the <italic>glcK </italic>gene.</p>
+        </sec>
+        <sec>
+          <title>Results</title>
+          <p>Microbial glucokinases can be grouped into two different lineages. One of the lineages contains three conserved cysteine (C) residues in a CXCGX(2)GCXE motif. This motif is also present in the <italic>B. subtilis </italic>GlcK. The GlcK protein occurs in both monomer and homodimer. Each GlcK monomer has six cysteines. All cysteine residues have been mutated, one-by-one, into alanine (A). The <italic>in vivo </italic>GlcK enzymatic activity was assayed by functional complementation in <italic>E. coli </italic>UE26 (<italic>ptsG ptsM glk</italic>). Mutation of the three motif-specific residues led to an inactive enzyme. The other mutated forms retained, or in one case (GlcK<sup>C321A</sup>) even gained, activity. The fluorescence spectra of the GlcK<sup>C321A </sup>showed a red shift and enhanced fluorescence intensity compare to the wild type's.</p>
+        </sec>
+        <sec>
+          <title>Conclusions</title>
+          <p>Our results emphasize the necessity of cysteines within the CXCGX(2)GCXE motif for GlcK activity. On the other hand, the C321A mutation led to higher GlcK<sup>C321A </sup>enzymatic activity with respect to the wild type's, suggesting more adequate glucose phosphorylation.</p>
+        </sec>
+      </abstract>
