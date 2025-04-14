@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11, <4"
 dependencies = [
     "httpx>=0.28.1",
-    "log",
+    "loggers",
     "lxml>=5.3.2",
     "xmlparser",
 ]
@@ -17,4 +17,4 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 xmlparser = { workspace = true }
-log = { workspace = true }
+loggers = { workspace = true }

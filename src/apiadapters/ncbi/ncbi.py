@@ -9,7 +9,7 @@ from collections.abc import Iterable
 from typing import AsyncIterator
 
 import xmlparser
-from log import logger
+from loggers import logger
 from lxml import etree
 from apiadapters import APIAdapter
 
