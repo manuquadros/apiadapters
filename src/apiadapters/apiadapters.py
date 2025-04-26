@@ -47,7 +47,7 @@ class APIAdapter:
     ) -> None:
         self.client = httpx.AsyncClient(
             headers=headers,
-            timeout=30.0,
+            timeout=100,
             follow_redirects=True,
         )
         self.semaphore = Semaphore(rate_limit)
