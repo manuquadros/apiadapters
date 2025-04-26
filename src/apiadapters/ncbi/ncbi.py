@@ -11,7 +11,7 @@ from typing import AsyncIterator
 import xmlparser
 from loggers import logger
 from lxml import etree
-from apiadapters import APIAdapter
+from apiadapters import AsyncAPIAdapter
 
 
 def extract_abstract(article: etree._Element, clean=False) -> str:
@@ -43,7 +43,7 @@ def stringify(xml: etree._Element) -> str:
     return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
-class NCBIAdapter(APIAdapter):
+class NCBIAdapter(AsyncAPIAdapter):
     def __init__(self) -> None:
         super().__init__(headers={"Accept-Encoding": "gzip, deflate"})
 
