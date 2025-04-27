@@ -13,7 +13,7 @@ from loggers import stderr_logger
 from abc import ABC
 from apiadapters import APIAdapter, AsyncAPIAdapter
 
-from brenda_references.brenda_types import Strain, StrainRef
+from brenda_types import Strain, StrainRef
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
 
