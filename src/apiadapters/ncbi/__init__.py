@@ -1,1 +1,7 @@
-from .ncbi import NCBIAdapter, extract_abstract, extract_body, stringify
+from .ncbi import (
+    AsyncNCBIAdapter,
+    NCBIAdapter,
+    extract_abstract,
+    extract_body,
+    stringify,
+)

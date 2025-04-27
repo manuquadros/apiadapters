@@ -1,4 +1,4 @@
-"""Module providing the NCBIAdapter class."""
+"""Module providing the NCBIAdapter and AsyncNCBIAdapterclasses."""
 
 import asyncio
 import httpx
@@ -6,12 +6,15 @@ import itertools
 import os
 import urllib
 from collections.abc import Iterable
-from typing import AsyncIterator
+from typing import AsyncIterator, Iterator, TypeVar
+from abc import ABC, abstractmethod
 
 import xmlparser
 from loggers import logger
 from lxml import etree
-from apiadapters import AsyncAPIAdapter
+from apiadapters import AsyncAPIAdapter, APIAdapter
+
+T = TypeVar("T")
 
 
 def extract_abstract(article: etree._Element, clean=False) -> str:
@@ -43,10 +46,11 @@ def stringify(xml: etree._Element) -> str:
     return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
-class NCBIAdapter(AsyncAPIAdapter):
+class NCBIAdapterBase(ABC):
+    """Base class with shared NCBI adapter functionality."""
+
     def __init__(self) -> None:
         super().__init__(headers={"Accept-Encoding": "gzip, deflate"})
-
         self.logger = logger(filename="ncbi.log")
 
         try:
@@ -68,7 +72,7 @@ class NCBIAdapter(AsyncAPIAdapter):
         for key, value in namespaces.items():
             etree.register_namespace(key, value)
 
-    def __response_handler(self, response: httpx.Response) -> etree._Element:
+    def _response_handler(self, response: httpx.Response) -> etree._Element:
         if response.status_code != 200:
             err = (
                 f"Request for {response.url} failed"
@@ -82,9 +86,6 @@ class NCBIAdapter(AsyncAPIAdapter):
 
         return etree.fromstring(response.content)
 
-    async def request(self, url: str) -> etree._Element:
-        return await super().request(url, handler=self.__response_handler)
-
     def summary_url(self, pubmed_id: str) -> str:
         url = (
             "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?"
@@ -95,6 +96,182 @@ class NCBIAdapter(AsyncAPIAdapter):
             url += f"&api_key={self.api_key}"
 
         return url
+
+    @staticmethod
+    def record_url(pmcid: str) -> str:
+        return (
+            "https://www.ncbi.nlm.nih.gov/pmc/oai/oai.cgi?"
+            "verb=GetRecord&identifier="
+            f"oai:pubmedcentral.nih.gov:{pmcid}&metadataPrefix=pmc_fm"
+        )
+
+
+class NCBIAdapter(SyncAPIAdapter, NCBIAdapterBase):
+    """Synchronous version of the NCBI adapter."""
+
+    def request(self, url: str) -> etree._Element:
+        return super().request(url, handler=self._response_handler)
+
+    def fetch_ncbi_abstracts(
+        self,
+        pubmed_ids: str | Iterable[str],
+        batch_size: int = 10000,
+    ) -> dict[str, str]:
+        """Fetch abstracts and copyright information for the given `pubmed_ids`.
+
+        For articles that do not have an abstract available, return None.
+        """
+        abstracts: dict[str, str | None] = {}
+
+        if isinstance(pubmed_ids, str):
+            pubmed_ids = (pubmed_ids,)
+
+        for batch in itertools.batched(pubmed_ids, batch_size):
+            url = (
+                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+                f"?db=pubmed&id={','.join(batch)}&retmode=xml"
+            )
+            root = self.request(url)
+
+            for article in root.findall(".//MedlineCitation"):
+                pmid = article.find("PMID").text
+                abstract = article.find(".//AbstractText")
+
+                if abstract is not None and getattr(abstract, "text", None):
+                    abstracts[pmid] = abstract.text + "".join(
+                        map(
+                            lambda node: etree.tostring(
+                                node, encoding="unicode"
+                            ),
+                            list(abstract),
+                        ),
+                    )
+
+        return {_id: text for _id, text in abstracts.items() if text}
+
+    def fetch_fulltext(self, pmc_id: str) -> str:
+        """Fetch full text record for a single given `pmc_id`.
+
+        :param pmc_id: PubMed Central id for full text retrieval.
+        :return: serialized full text for the given `pmc_id`.
+        """
+        root = self.pmc_record(pmc_id)
+
+        try:
+            body = root.xpath("//*[name()='body']")[0]
+        except IndexError:
+            self.logger.debug(f"Could not retrieve full text for {pmc_id}.")
+            return ""
+        else:
+            return etree.tostring(body, method="c14n2").decode("utf-8")
+
+    def fetch_fulltext_and_abstract(self, pmc_id: str) -> dict[str, str]:
+        """Retrieve full text and abstract for a given PMC ID.
+
+        :param pmc_id: PubMed Central ID for retrieval.
+        :return: dict containing abstract and full text for the
+        requested ID.
+        """
+        root = self.pmc_record(pmc_id)
+
+        return {
+            "abstract": extract_abstract(root),
+            "body": extract_body(root),
+        }
+
+    def pmc_record(self, pmc_id: str) -> etree._Element:
+        """Retrieve the PMC_OAI record for a particular PMC ID.
+
+        :param pmc_id: PubMed Central ID for record retrieval.
+        :return: _Element containing the record.
+        """
+        url = (
+            "https://www.ncbi.nlm.nih.gov/pmc/oai/oai.cgi"
+            "?verb=GetRecord"
+            f"&identifier=oai:pubmedcentral.nih.gov:{pmc_id}"
+            "&metadataPrefix=pmc"
+        )
+        return self.request(url)
+
+    def fetch_fulltext_articles(
+        self,
+        pmc_ids: str | Iterable[str],
+    ) -> dict[str, str]:
+        """Fetch full text record for the given `pmc_ids`.
+
+        :param pmc_ids: PubMed Central ids for full text retrieval.
+        :return: Dictionary mapping PMC IDs to serialized full texts.
+        """
+        if isinstance(pmc_ids, str):
+            pmc_ids = (pmc_ids,)
+
+        fulltext = {}
+        for _id in pmc_ids:
+            text = self.fetch_fulltext(_id)
+            if text:
+                fulltext[_id] = text
+
+        return fulltext
+
+    def article_ids(self, pubmed_id: str) -> dict[str, str]:
+        record = self.request(self.summary_url(pubmed_id))
+
+        return {
+            id.attrib["Name"]: id.text
+            for id in record.xpath("//Item[@Name='ArticleIds']//Item")
+        }
+
+    def is_pmc_open(self, pmcid: str | None) -> bool:
+        if not pmcid:
+            return False
+
+        record = self.request(self.record_url(pmcid))
+        namespaces = {"oai": "http://www.openarchives.org/OAI/2.0/"}
+
+        return "pmc-open" in record.xpath(
+            "//oai:setSpec/text()", namespaces=namespaces
+        )
+
+    def pmcids_for_query(self, query: str) -> Iterator[str]:
+        """Retrieve PMC ids for a given Entrez text query.
+
+        :param query: Entrez search query, as documented here:
+            https://www.ncbi.nlm.nih.gov/books/NBK3837/
+        :return: Iterator of PubMed Central ids.
+        """
+        encoded_query = urllib.parse.quote_plus(query)
+        retstart = 0
+        more = True
+        count: int | None = None
+
+        while more:
+            url = (
+                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+                f"?db=pmc&term={encoded_query}&retstart={retstart}"
+            )
+            result = self.request(url)
+
+            for id in result.xpath("//*[name()='Id']"):
+                yield id.text
+
+            if count is None:
+                count = int(
+                    result.xpath(
+                        "//*[name()='eSearchResult']/*[name()='Count']"
+                    )[0].text
+                )
+
+            retstart += 20
+
+            if retstart >= count:
+                more = False
+
+
+class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
+    """Async version of the NCBI adapter."""
+
+    async def request(self, url: str) -> etree._Element:
+        return await super().request(url, handler=self._response_handler)
 
     async def fetch_ncbi_abstracts(
         self,

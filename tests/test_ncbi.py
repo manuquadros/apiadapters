@@ -8,14 +8,14 @@ TEST_DIR = pathlib.Path(__file__).parent
 
 @pytest.mark.asyncio
 async def test_pmc_open() -> None:
-    async with ncbi.NCBIAdapter() as api:
+    async with ncbi.AsyncNCBIAdapter() as api:
         is_open = await api.is_pmc_open("365027")
         assert is_open is True
 
 
 @pytest.mark.asyncio
 async def test_abstract_with_formatting() -> None:
-    async with ncbi.NCBIAdapter() as api:
+    async with ncbi.AsyncNCBIAdapter() as api:
         pmid = "17323951"
         abstracts = await api.fetch_ncbi_abstracts(pmid)
         assert abstracts[pmid] == (
