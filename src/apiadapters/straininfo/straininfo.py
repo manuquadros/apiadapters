@@ -55,18 +55,10 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
     return set(strain_names) | standardized
 
 
-class StrainInfoAdapterBase(Protocol):
+class StrainInfoAdapterBase:
     """Base class with shared StrainInfo adapter functionality."""
 
     def __init__(self) -> None:
-        super().__init__(
-            headers={
-                "Accept": "application/json",
-                "Cache-Control": "no-store",
-                "Accept-Encoding": "gzip, deflate",
-            },
-        )
-        print("initializing")
         self.buffer: set[StrainRef] = set()
         self.storage: TinyDB
 
@@ -116,6 +108,17 @@ class StrainInfoAdapterBase(Protocol):
 
 
 class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
+    def __init__(self):
+        AsyncAPIAdapter.__init__(
+            self,
+            headers={
+                "Accept": "application/json",
+                "Cache-Control": "no-store",
+                "Accept-Encoding": "gzip, deflate",
+            },
+        )
+        StrainInfoAdapterBase.__init__(self)
+
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -126,7 +129,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
     async def request(self, url: str) -> list[dict] | list[int]:
         response = await super().request(url)
-        return self._response_handler(url, response)
+        return self.__response_handler(url, response)
 
     async def retrieve_strain_models(
         self,
@@ -258,7 +261,15 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
     """Synchronous version of the StrainInfo adapter."""
 
     def __init__(self):
-        super().__init__()
+        APIAdapter.__init__(
+            self,
+            headers={
+                "Accept": "application/json",
+                "Cache-Control": "no-store",
+                "Accept-Encoding": "gzip, deflate",
+            },
+        )
+        StrainInfoAdapterBase.__init__(self)
 
     def __exit__(
         self,
@@ -271,7 +282,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
     def request(self, url: str) -> list[dict] | list[int]:
         response = super().request(url)
-        return self._response_handler(url, response)
+        return self.__response_handler(url, response)
 
     def _flush_buffer(self) -> None:
         """Store Strain models into self.storage.
