@@ -71,7 +71,7 @@ class StrainInfoAdapterBase:
             case 200:
                 return response.json()
             case 404:
-                logger().error(
+                stderr_logger().error(
                     "%s not found on StrainInfo.", url.split("/")[-1]
                 )
                 return []
@@ -129,7 +129,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
     async def request(self, url: str) -> list[dict] | list[int]:
         response = await super().request(url)
-        return self.__response_handler(url, response)
+        return self._response_handler(url, response)
 
     async def retrieve_strain_models(
         self,
@@ -189,25 +189,9 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         if len(self.buffer) > 100:
             await self.__flush_buffer()
 
-    @staticmethod
-    def __response_handler(
-        url: str,
-        response: httpx.Response,
-    ) -> list[dict] | list[int]:
-        match response.status_code:
-            case 200:
-                return response.json()
-            case 404:
-                stderr_logger().error(
-                    "%s not found on StrainInfo.", url.split("/")[-1]
-                )
-                return []
-            case _:
-                raise response.raise_for_status()
-
     async def request(self, url: str) -> list[dict] | list[int]:
         response = await super().request(url)
-        return self.__response_handler(url, response)
+        return self._response_handler(url, response)
 
     async def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -282,7 +266,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
     def request(self, url: str) -> list[dict] | list[int]:
         response = super().request(url)
-        return self.__response_handler(url, response)
+        return self._response_handler(url, response)
 
     def _flush_buffer(self) -> None:
         """Store Strain models into self.storage.

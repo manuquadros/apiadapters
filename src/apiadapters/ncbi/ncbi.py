@@ -7,7 +7,6 @@ import os
 import urllib
 from collections.abc import Iterable
 from typing import AsyncIterator, Iterator, TypeVar
-from abc import ABC, abstractmethod
 
 import xmlparser
 from loggers import logger
@@ -46,11 +45,10 @@ def stringify(xml: etree._Element) -> str:
     return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
-class NCBIAdapterBase(ABC):
+class NCBIAdapterBase:
     """Base class with shared NCBI adapter functionality."""
 
     def __init__(self) -> None:
-        super().__init__(headers={"Accept-Encoding": "gzip, deflate"})
         self.logger = logger(filename="ncbi.log")
 
         try:
@@ -106,8 +104,11 @@ class NCBIAdapterBase(ABC):
         )
 
 
-class NCBIAdapter(SyncAPIAdapter, NCBIAdapterBase):
+class NCBIAdapter(APIAdapter, NCBIAdapterBase):
     """Synchronous version of the NCBI adapter."""
+
+    def __init__(self):
+        super().__init__(headers={"Accept-Encoding": "gzip, deflate"})
 
     def request(self, url: str) -> etree._Element:
         return super().request(url, handler=self._response_handler)
@@ -269,6 +270,9 @@ class NCBIAdapter(SyncAPIAdapter, NCBIAdapterBase):
 
 class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
     """Async version of the NCBI adapter."""
+
+    def __init__(self):
+        super().__init__(headers={"Accept-Encoding": "gzip, deflate"})
 
     async def request(self, url: str) -> etree._Element:
         return await super().request(url, handler=self._response_handler)
