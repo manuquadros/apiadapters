@@ -2,7 +2,7 @@ import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Any, Self, cast, Protocol
+from typing import Any, Self, cast
 
 import httpx
 import tinydb
