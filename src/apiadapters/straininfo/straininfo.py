@@ -63,7 +63,7 @@ class StrainInfoAdapterBase:
         self.storage: TinyDB
 
     @staticmethod
-    def __response_handler(
+    def _response_handler(
         url: str,
         response: httpx.Response,
     ) -> list[dict] | list[int]:
