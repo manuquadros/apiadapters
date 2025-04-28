@@ -2,7 +2,7 @@ import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Any, Self, cast
+from typing import Any, Self, cast, Protocol
 
 import httpx
 import tinydb
@@ -10,8 +10,7 @@ from pydantic import ValidationError
 from tinydb import TinyDB
 
 from loggers import stderr_logger
-from abc import ABC
-from apiadapters import APIAdapter, AsyncAPIAdapter
+from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter
 
 from brenda_types import Strain, StrainRef
 
@@ -56,7 +55,7 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
     return set(strain_names) | standardized
 
 
-class StrainInfoAdapterBase(ABC):
+class StrainInfoAdapterBase(Protocol):
     """Base class with shared StrainInfo adapter functionality."""
 
     def __init__(self) -> None:
@@ -67,6 +66,7 @@ class StrainInfoAdapterBase(ABC):
                 "Accept-Encoding": "gzip, deflate",
             },
         )
+        print("initializing")
         self.buffer: set[StrainRef] = set()
         self.storage: TinyDB
 
@@ -256,6 +256,9 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
 class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
     """Synchronous version of the StrainInfo adapter."""
+
+    def __init__(self):
+        super().__init__()
 
     def __exit__(
         self,
