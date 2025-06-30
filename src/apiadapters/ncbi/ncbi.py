@@ -1,17 +1,17 @@
 """Module providing the NCBIAdapter and AsyncNCBIAdapterclasses."""
 
 import asyncio
-import httpx
 import itertools
 import os
 import urllib
 from collections.abc import Iterable
 from typing import AsyncIterator, Iterator, TypeVar
 
+import httpx
 import xmlparser
+from apiadapters import APIAdapter, AsyncAPIAdapter
 from loggers import logger
 from lxml import etree
-from apiadapters import AsyncAPIAdapter, APIAdapter
 
 T = TypeVar("T")
 
@@ -40,8 +40,30 @@ def extract_body(article: etree._Element, clean=False) -> str:
         return stringify(body)
 
 
+def extract_pmid(article: etree._Element) -> str:
+    try:
+        pmid = article.xpath(
+            "//*[name()='article-id' and @pub-id-type='pmid']/text()"
+        )[0]
+    except ValueError:
+        print("no pmid")
+        raise
+    else:
+        return pmid
+
+
 def stringify(xml: etree._Element) -> str:
     """Convert `xml` to string"""
+    namespaces = {
+        "ns": "https://dtd.nlm.nih.gov/ns/archiving/2.3/",
+        "jats": "https://jats.nlm.nih.gov/ns/archiving/1.3/",
+        "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "mml": "http://www.w3.org/1998/Math/MathML",
+        "xlink": "http://www.w3.org/1999/xlink",
+        "ali": "http://www.niso.org/schemas/ali/1.0/",
+    }
+    for key, value in namespaces.items():
+        etree.register_namespace(key, value)
     return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
@@ -166,7 +188,7 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         else:
             return etree.tostring(body, method="c14n2").decode("utf-8")
 
-    def fetch_fulltext_and_abstract(self, pmc_id: str) -> dict[str, str]:
+    def fetch_fulltext_and_abstract(self, pmc_id: str) -> dict[str, str] | None:
         """Retrieve full text and abstract for a given PMC ID.
 
         :param pmc_id: PubMed Central ID for retrieval.
@@ -175,10 +197,15 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         """
         root = self.pmc_record(pmc_id)
 
-        return {
-            "abstract": extract_abstract(root),
-            "body": extract_body(root),
-        }
+        try:
+            ret = {
+                "abstract": extract_abstract(root),
+                "body": extract_body(root),
+                "pubmed_id": extract_pmid(root),
+            }
+            return ret
+        except IndexError:
+            return None
 
     def pmc_record(self, pmc_id: str) -> etree._Element:
         """Retrieve the PMC_OAI record for a particular PMC ID.
