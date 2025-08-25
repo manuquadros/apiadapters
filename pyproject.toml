@@ -3,7 +3,7 @@ name = "apiadapters"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11, <4"
+requires-python = ">=3.12, <4"
 dependencies = [
     "httpx>=0.28.1",
     "loggers",
@@ -16,5 +16,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-xmlparser = { workspace = true }
-loggers = { workspace = true }
+loggers = { git = "ssh://git@github.com/manuquadros/loggers.git" }
+xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
