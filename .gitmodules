@@ -1,0 +1,3 @@
+[submodule "modules/d3types"]
+	path = modules/d3types
+	url = ssh://git@github.com/manuquadros/d3types.git

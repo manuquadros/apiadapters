@@ -21,4 +21,14 @@ build-backend = "hatchling.build"
 [tool.uv.sources]
 loggers = { git = "ssh://git@github.com/manuquadros/loggers.git" }
 xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
-d3types = { git = "ssh://git@github.com/manuquadros/d3types.git" }
+d3types = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "modules/d3types",
+]
+
+[dependency-groups]
+dev = [
+    "d3types",
+]
