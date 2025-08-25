@@ -6,13 +6,11 @@ from typing import Any, Self, cast
 
 import httpx
 import tinydb
+from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter
+from d3types import Strain, StrainRef
+from loggers import stderr_logger
 from pydantic import ValidationError
 from tinydb import TinyDB
-
-from loggers import stderr_logger
-from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter
-
-from brenda_types import Strain, StrainRef
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
 
