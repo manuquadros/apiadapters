@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "API adapters for services external and internal to D3"
 readme = "README.md"
 requires-python = ">=3.12, <4"
+license = "GPL-3.0-or-later"
 dependencies = [
   "cacheout>=0.16.0",
   "d3types",
