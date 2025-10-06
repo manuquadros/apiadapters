@@ -9,8 +9,7 @@ from typing import AsyncIterator, Iterator, TypeVar
 
 import httpx
 import xmlparser
-from apiadapters import APIAdapter, AsyncAPIAdapter
-from loggers import logger
+from apiadapters import APIAdapter, AsyncAPIAdapter, file_logger, stderr_logger
 from lxml import etree
 
 T = TypeVar("T")
@@ -71,7 +70,7 @@ class NCBIAdapterBase:
     """Base class with shared NCBI adapter functionality."""
 
     def __init__(self) -> None:
-        self.logger = logger(filename="ncbi.log")
+        self.logger = file_logger(filename="ncbi.log")
 
         try:
             self.api_key = os.environ["NCBI_API_KEY"]

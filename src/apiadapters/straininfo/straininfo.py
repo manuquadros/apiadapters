@@ -6,9 +6,13 @@ from typing import Any, Self, cast
 
 import httpx
 import tinydb
-from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter
+from apiadapters import (
+    APIAdapter,
+    AsyncAPIAdapter,
+    BaseAPIAdapter,
+    stderr_logger,
+)
 from d3types import Strain, StrainRef
-from loggers import stderr_logger
 from pydantic import ValidationError
 from tinydb import TinyDB
 

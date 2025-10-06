@@ -1,13 +1,57 @@
+import logging
 import time
-import httpx
 from asyncio import Semaphore, sleep
-from threading import Semaphore as ThreadSemaphore
-from types import TracebackType
-from typing import Any, Self, TypeVar, Callable, overload
 from collections.abc import Callable
 from functools import wraps
+from logging.handlers import RotatingFileHandler
+from threading import Semaphore as ThreadSemaphore
+from types import TracebackType
+from typing import Any, Callable, Self, TypeVar, overload
+
+import httpx
 
 T = TypeVar("T")
+
+
+def file_logger(
+    filename: str,
+    level: int = logging.DEBUG,
+) -> logging.Logger:
+    """Return a logger with file rotation."""
+    ologger = logging.getLogger(__name__)
+    ologger.setLevel(level)
+
+    handler = RotatingFileHandler(
+        filename=filename,
+        maxBytes=512000,
+        backupCount=5,
+    )
+    handler.setFormatter(
+        logging.Formatter(
+            fmt="%(asctime)s, %(module)s.%(funcName)s, %(levelname)s, %(message)s",
+            datefmt="%d %b %Y %H:%M:%S",
+        ),
+    )
+    ologger.addHandler(handler)
+
+    return ologger
+
+
+def stderr_logger(level: int = logging.DEBUG) -> logging.Logger:
+    """Create a simple stderr logger for debugging purposes."""
+    ologger = logging.getLogger(__name__)
+    ologger.setLevel(level)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter(
+            fmt="%(asctime)s, %(module)s.%(funcName)s, %(levelname)s, %(message)s",
+            datefmt="%H:%M:%S",
+        ),
+    )
+    ologger.addHandler(handler)
+
+    return ologger
 
 
 def retry_if_too_many_requests(is_async: bool = True):

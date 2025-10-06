@@ -9,7 +9,6 @@ dependencies = [
   "cacheout>=0.16.0",
   "d3types",
   "httpx>=0.28.1",
-  "loggers",
   "lxml>=5.3.2",
   "pandas>=2.3.2",
   "xmlparser",
@@ -20,6 +19,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-loggers = { git = "ssh://git@github.com/manuquadros/loggers.git" }
 xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
 d3types = { git = "ssh://git@github.com/manuquadros/d3types.git" }
