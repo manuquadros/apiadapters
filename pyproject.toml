@@ -19,5 +19,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git" }
-d3types = { git = "ssh://git@github.com/manuquadros/d3types.git" }
+xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git", tag = "v0.1.0" }
+d3types = { git = "ssh://git@github.com/manuquadros/d3types.git", tag = "v0.1.0" }
