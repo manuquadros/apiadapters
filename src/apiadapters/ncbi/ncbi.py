@@ -145,8 +145,9 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
                 if abstract is not None and etree.tostring(
                     abstract, method="text", encoding="unicode"
                 ).strip():
-                    abstracts[pmid] = etree.tostring(
-                        abstract, encoding="unicode", with_tail=False
+                    abstracts[pmid] = (abstract.text or "") + "".join(
+                        etree.tostring(node, encoding="unicode")
+                        for node in abstract
                     )
 
         return {_id: text for _id, text in abstracts.items() if text}
@@ -312,8 +313,9 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
                 if abstract is not None and etree.tostring(
                     abstract, method="text", encoding="unicode"
                 ).strip():
-                    abstracts[pmid] = etree.tostring(
-                        abstract, encoding="unicode", with_tail=False
+                    abstracts[pmid] = (abstract.text or "") + "".join(
+                        etree.tostring(node, encoding="unicode")
+                        for node in abstract
                     )
 
         return {_id: text for _id, text in abstracts.items() if text}
