@@ -1,7 +1,6 @@
 import logging
 import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
-from functools import singledispatchmethod
 from types import TracebackType
 from typing import Any, Self, cast
 
@@ -83,33 +82,24 @@ class StrainInfoAdapterBase:
             case _:
                 response.raise_for_status()
 
-    @singledispatchmethod
     @staticmethod
-    def strain_info_api_url(query: Any):
-        raise TypeError
+    def strain_info_api_url(query: str | int | Iterable[str] | Iterable[int]) -> str:
+        if isinstance(query, (str, int)):
+            query = [query]
 
-    @strain_info_api_url.register(Iterable)
-    @staticmethod
-    def _(query: Iterable[str] | Iterable[int]) -> str:
-        if not query:
-            raise ValueError
+        items = list(query)
+        if not items:
+            raise ValueError("query must not be empty")
 
-        for item in query:
-            match type(item).__name__:
-                case "str":
-                    root = api_root + "search/strain/str_des/"
-                case "int":
-                    root = api_root + "data/strain/max/"
-                case _:
-                    raise httpx.InvalidURL
-            break
+        match type(items[0]).__name__:
+            case "str":
+                root = api_root + "search/strain/str_des/"
+            case "int":
+                root = api_root + "data/strain/max/"
+            case _:
+                raise httpx.InvalidURL(f"Unsupported query item type: {type(items[0])}")
 
-        return root + ",".join(map(str, query))
-
-    @strain_info_api_url.register
-    @staticmethod
-    def _(query: str | int) -> str:
-        return StrainInfoAdapterBase.strain_info_api_url([query])
+        return root + ",".join(map(str, items))
 
 
 class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
