@@ -129,10 +129,6 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
     ) -> None:
         await self.__flush_buffer()
 
-    async def request(self, url: str) -> list[dict] | list[int]:
-        response = await super().request(url)
-        return self._response_handler(url, response)
-
     async def retrieve_strain_models(
         self,
         strains: MutableMapping[int, Strain],
