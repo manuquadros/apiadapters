@@ -139,7 +139,7 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
             root = self.request(url)
 
             for article in root.findall(".//MedlineCitation"):
-                pmid = article.find("PMID").text
+                pmid = article.findtext("PMID")
                 abstract = article.find(".//AbstractText")
 
                 if abstract is not None and getattr(abstract, "text", None):
@@ -308,7 +308,7 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
             root = await self.request(url)
 
             for article in root.findall(".//MedlineCitation"):
-                pmid = article.find("PMID").text
+                pmid = article.findtext("PMID")
                 abstract = article.find(".//AbstractText")
 
                 if abstract is not None and getattr(abstract, "text", None):
