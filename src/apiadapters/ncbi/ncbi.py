@@ -375,21 +375,13 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         if isinstance(pmc_ids, str):
             pmc_ids = (pmc_ids,)
 
-        fulltext: dict[str, str] = {}
+        tasks: dict[str, asyncio.Task[str]] = {}
 
         async with asyncio.TaskGroup() as tg:
-            fulltext.update(
-                {
-                    _id: tg.create_task(self.fetch_fulltext(_id))
-                    for _id in pmc_ids
-                },
-            )
+            for _id in pmc_ids:
+                tasks[_id] = tg.create_task(self.fetch_fulltext(_id))
 
-        fulltext.update(
-            {_id: text_task.result() for _id, text_task in fulltext.items()},
-        )
-
-        return {_id: text for _id, text in fulltext.items() if text}
+        return {_id: task.result() for _id, task in tasks.items() if task.result()}
 
     @staticmethod
     def record_url(pmcid: str) -> str:
