@@ -110,8 +110,10 @@ class BaseAPIAdapter:
     """Base class for API adapters with common functionality."""
 
     def __init__(
-        self, headers: dict[str, str] = {}, rate_limit: int = 3
+        self, headers: dict[str, str] | None = None, rate_limit: int = 3
     ) -> None:
+        if headers is None:
+            headers = {}
         self.headers = headers
         self.rate_limit = rate_limit
         self.last_request_time: dict[str, float] = {}
@@ -122,8 +124,10 @@ class AsyncAPIAdapter(BaseAPIAdapter):
     """Async version of the API adapter."""
 
     def __init__(
-        self, headers: dict[str, str] = {}, rate_limit: int = 3
+        self, headers: dict[str, str] | None = None, rate_limit: int = 3
     ) -> None:
+        if headers is None:
+            headers = {}
         super().__init__(headers, rate_limit)
         self.client = httpx.AsyncClient(
             headers=headers,
@@ -167,8 +171,10 @@ class APIAdapter(BaseAPIAdapter):
     """Synchronous version of the API adapter."""
 
     def __init__(
-        self, headers: dict[str, str] = {}, rate_limit: int = 3
+        self, headers: dict[str, str] | None = None, rate_limit: int = 3
     ) -> None:
+        if headers is None:
+            headers = {}
         super().__init__(headers, rate_limit)
         self.client = httpx.Client(
             headers=headers,
