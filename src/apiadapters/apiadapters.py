@@ -1,7 +1,6 @@
 import logging
 import time
 from asyncio import Semaphore, sleep
-from collections.abc import Callable
 from functools import wraps
 from logging.handlers import RotatingFileHandler
 from threading import Semaphore as ThreadSemaphore
