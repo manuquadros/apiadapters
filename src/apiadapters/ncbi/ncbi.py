@@ -39,7 +39,7 @@ def extract_abstract(article: etree._Element, clean=False) -> str:
 
 
 def extract_body(article: etree._Element, clean=False) -> str:
-    """Extract the abstract from `article`"""
+    """Extract the text body from `article`"""
     try:
         body = article.xpath("//*[name()='body']")[0]
     except IndexError:
@@ -64,9 +64,10 @@ def _parse_abstracts(root: etree._Element) -> dict[str, str]:
     for article in root.findall(".//MedlineCitation"):
         pmid = article.findtext("PMID")
         abstract = article.find(".//AbstractText")
-        if abstract is not None and etree.tostring(
-            abstract, method="text", encoding="unicode"
-        ).strip():
+        if (
+            abstract is not None
+            and etree.tostring(abstract, method="text", encoding="unicode").strip()
+        ):
             result[pmid] = (abstract.text or "") + "".join(
                 etree.tostring(node, encoding="unicode") for node in abstract
             )
