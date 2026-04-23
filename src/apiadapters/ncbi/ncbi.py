@@ -14,6 +14,17 @@ from lxml import etree
 
 T = TypeVar("T")
 
+_NAMESPACES = {
+    "ns": "https://dtd.nlm.nih.gov/ns/archiving/2.3/",
+    "jats": "https://jats.nlm.nih.gov/ns/archiving/1.3/",
+    "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+    "mml": "http://www.w3.org/1998/Math/MathML",
+    "xlink": "http://www.w3.org/1999/xlink",
+    "ali": "http://www.niso.org/schemas/ali/1.0/",
+}
+for _prefix, _uri in _NAMESPACES.items():
+    etree.register_namespace(_prefix, _uri)
+
 
 def extract_abstract(article: etree._Element, clean=False) -> str:
     """Extract the abstract from `article`"""
@@ -53,16 +64,6 @@ def extract_pmid(article: etree._Element) -> str:
 
 def stringify(xml: etree._Element) -> str:
     """Convert `xml` to string"""
-    namespaces = {
-        "ns": "https://dtd.nlm.nih.gov/ns/archiving/2.3/",
-        "jats": "https://jats.nlm.nih.gov/ns/archiving/1.3/",
-        "xsi": "http://www.w3.org/2001/XMLSchema-instance",
-        "mml": "http://www.w3.org/1998/Math/MathML",
-        "xlink": "http://www.w3.org/1999/xlink",
-        "ali": "http://www.niso.org/schemas/ali/1.0/",
-    }
-    for key, value in namespaces.items():
-        etree.register_namespace(key, value)
     return etree.tostring(xml, method="c14n2").decode("utf-8")
 
 
@@ -79,17 +80,6 @@ class NCBIAdapterBase:
                 "Continuing without API key. If you want to go faster, set the ",
                 "NCBI_API_KEY environment variable.",
             )
-
-        namespaces = {
-            "ns": "https://dtd.nlm.nih.gov/ns/archiving/2.3/",
-            "jats": "https://jats.nlm.nih.gov/ns/archiving/1.3/",
-            "xsi": "http://www.w3.org/2001/XMLSchema-instance",
-            "mml": "http://www.w3.org/1998/Math/MathML",
-            "xlink": "http://www.w3.org/1999/xlink",
-            "ali": "http://www.niso.org/schemas/ali/1.0/",
-        }
-        for key, value in namespaces.items():
-            etree.register_namespace(key, value)
 
     def _response_handler(self, response: httpx.Response) -> etree._Element:
         if response.status_code != 200:
