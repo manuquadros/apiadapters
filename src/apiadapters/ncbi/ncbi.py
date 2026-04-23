@@ -16,7 +16,7 @@ T = TypeVar("T")
 
 _NAMESPACES = {
     "ns": "https://dtd.nlm.nih.gov/ns/archiving/2.3/",
-    "jats": "https://jats.nlm.nih.gov/ns/archiving/1.3/",
+    "jats": "https://jats.nlm.nih.gov/ns/archiving/1.4/",
     "xsi": "http://www.w3.org/2001/XMLSchema-instance",
     "mml": "http://www.w3.org/1998/Math/MathML",
     "xlink": "http://www.w3.org/1999/xlink",
@@ -51,14 +51,26 @@ def extract_body(article: etree._Element, clean=False) -> str:
 
 
 def extract_pmid(article: etree._Element) -> str:
-    return article.xpath(
-        "//*[name()='article-id' and @pub-id-type='pmid']/text()"
-    )[0]
+    return article.xpath("//*[name()='article-id' and @pub-id-type='pmid']/text()")[0]
 
 
 def stringify(xml: etree._Element) -> str:
     """Convert `xml` to string"""
     return etree.tostring(xml, method="c14n2").decode("utf-8")
+
+
+def _parse_abstracts(root: etree._Element) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for article in root.findall(".//MedlineCitation"):
+        pmid = article.findtext("PMID")
+        abstract = article.find(".//AbstractText")
+        if abstract is not None and etree.tostring(
+            abstract, method="text", encoding="unicode"
+        ).strip():
+            result[pmid] = (abstract.text or "") + "".join(
+                etree.tostring(node, encoding="unicode") for node in abstract
+            )
+    return result
 
 
 class NCBIAdapterBase:
@@ -77,8 +89,7 @@ class NCBIAdapterBase:
     def _response_handler(self, response: httpx.Response) -> etree._Element:
         if response.status_code != 200:
             err = (
-                f"Request for {response.url} failed"
-                f" with status {response.status_code}"
+                f"Request for {response.url} failed with status {response.status_code}"
             )
             raise httpx.HTTPStatusError(
                 message=err,
@@ -122,35 +133,18 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         pubmed_ids: str | Iterable[str],
         batch_size: int = 10000,
     ) -> dict[str, str]:
-        """Fetch abstracts and copyright information for the given `pubmed_ids`.
-
-        For articles that do not have an abstract available, return None.
-        """
-        abstracts: dict[str, str | None] = {}
-
+        """Fetch abstracts and copyright information for the given `pubmed_ids`."""
         if isinstance(pubmed_ids, str):
             pubmed_ids = (pubmed_ids,)
 
+        abstracts: dict[str, str] = {}
         for batch in itertools.batched(pubmed_ids, batch_size):
             url = (
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
                 f"?db=pubmed&id={','.join(batch)}&retmode=xml"
             )
-            root = self.request(url)
-
-            for article in root.findall(".//MedlineCitation"):
-                pmid = article.findtext("PMID")
-                abstract = article.find(".//AbstractText")
-
-                if abstract is not None and etree.tostring(
-                    abstract, method="text", encoding="unicode"
-                ).strip():
-                    abstracts[pmid] = (abstract.text or "") + "".join(
-                        etree.tostring(node, encoding="unicode")
-                        for node in abstract
-                    )
-
-        return {_id: text for _id, text in abstracts.items() if text}
+            abstracts.update(_parse_abstracts(self.request(url)))
+        return abstracts
 
     def fetch_fulltext(self, pmc_id: str) -> str:
         """Fetch full text record for a single given `pmc_id`.
@@ -236,9 +230,7 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         record = self.request(self.record_url(pmcid))
         namespaces = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
-        return "pmc-open" in record.xpath(
-            "//oai:setSpec/text()", namespaces=namespaces
-        )
+        return "pmc-open" in record.xpath("//oai:setSpec/text()", namespaces=namespaces)
 
     def pmcids_for_query(self, query: str) -> Iterator[str]:
         """Retrieve PMC ids for a given Entrez text query.
@@ -265,9 +257,9 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
 
             if count is None:
                 count = int(
-                    result.xpath(
-                        "//*[name()='eSearchResult']/*[name()='Count']"
-                    )[0].text
+                    result.xpath("//*[name()='eSearchResult']/*[name()='Count']")[
+                        0
+                    ].text
                 )
 
             retstart += retmax
@@ -290,35 +282,18 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         pubmed_ids: str | Iterable[str],
         batch_size: int = 10000,
     ) -> dict[str, str]:
-        """Fetch abstracts and copyright information for the given `pubmed_ids`.
-
-        For articles that do not have an abstract available, return None.
-        """
-        abstracts: dict[str, str | None] = {}
-
+        """Fetch abstracts and copyright information for the given `pubmed_ids`."""
         if isinstance(pubmed_ids, str):
             pubmed_ids = (pubmed_ids,)
 
+        abstracts: dict[str, str] = {}
         for batch in itertools.batched(pubmed_ids, batch_size):
             url = (
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
                 f"?db=pubmed&id={','.join(batch)}&retmode=xml"
             )
-            root = await self.request(url)
-
-            for article in root.findall(".//MedlineCitation"):
-                pmid = article.findtext("PMID")
-                abstract = article.find(".//AbstractText")
-
-                if abstract is not None and etree.tostring(
-                    abstract, method="text", encoding="unicode"
-                ).strip():
-                    abstracts[pmid] = (abstract.text or "") + "".join(
-                        etree.tostring(node, encoding="unicode")
-                        for node in abstract
-                    )
-
-        return {_id: text for _id, text in abstracts.items() if text}
+            abstracts.update(_parse_abstracts(await self.request(url)))
+        return abstracts
 
     async def fetch_fulltext(self, pmc_id: str) -> str:
         """Fetch full text record for a single given `pmc_id`.
@@ -408,9 +383,7 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         record = await self.request(self.record_url(pmcid))
         namespaces = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
-        return "pmc-open" in record.xpath(
-            "//oai:setSpec/text()", namespaces=namespaces
-        )
+        return "pmc-open" in record.xpath("//oai:setSpec/text()", namespaces=namespaces)
 
     async def pmcids_for_query(self, query: str) -> AsyncIterator[str]:
         """Retrieve PMC ids for a given Entrez text query.
@@ -437,9 +410,9 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
 
             if count is None:
                 count = int(
-                    result.xpath(
-                        "//*[name()='eSearchResult']/*[name()='Count']"
-                    )[0].text
+                    result.xpath("//*[name()='eSearchResult']/*[name()='Count']")[
+                        0
+                    ].text
                 )
 
             retstart += retmax

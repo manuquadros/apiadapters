@@ -51,6 +51,39 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
     return set(strain_names) | standardized
 
 
+def _parse_strain_data(data: list[dict]) -> tuple[Strain, ...]:
+    try:
+        return tuple(
+            Strain(
+                **item["strain"],
+                cultures=item["strain"]["relation"].get("culture", frozenset()),
+                designations=item["strain"]["relation"].get("designation", frozenset()),
+            )
+            for item in data
+        )
+    except ValidationError as e:
+        logger.error("ValidationError parsing strain data: %s", data)
+        raise e
+
+
+def _merge_strain_models(
+    strains: Mapping[int, Strain],
+    straininfo_data: tuple[Strain, ...],
+    known_names: dict[str, int],
+) -> dict[int, Strain]:
+    result: dict[int, Strain] = dict(strains)
+    for entry in straininfo_data:
+        names: frozenset[str] = entry.designations | frozenset(
+            cult.strain_number for cult in entry.cultures
+        )
+        try:
+            keyname = next(filter(lambda w: w in known_names, names))
+            result[known_names[keyname]] = entry.model_copy()
+        except StopIteration:
+            pass
+    return result
+
+
 class StrainInfoAdapterBase:
     """Base class with shared StrainInfo adapter functionality."""
 
@@ -114,22 +147,9 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
             for ix, model in strains.items()
             for name in normalize_strain_names(model.designations)
         }
-
-        ids: list[int] = await self.get_strain_ids(list(known_names.keys()))
-        straininfo_data: tuple[Strain, ...] = await self.get_strain_data(ids)
-
-        result: dict[int, Strain] = dict(strains)
-        for entry in straininfo_data:
-            names: frozenset[str] = entry.designations | frozenset(
-                cult.strain_number for cult in entry.cultures
-            )
-            try:
-                keyname = next(filter(lambda w: w in known_names, names))
-                result[known_names[keyname]] = entry.model_copy()
-            except StopIteration:
-                pass
-
-        return result
+        ids = await self.get_strain_ids(list(known_names.keys()))
+        straininfo_data = await self.get_strain_data(ids)
+        return _merge_strain_models(strains, straininfo_data, known_names)
 
     async def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -158,24 +178,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
             data = await self.request(self.strain_info_api_url(query))
         except ValueError:
             return ()
-
-        try:
-            return tuple(
-                Strain(
-                    **item["strain"],
-                    cultures=item["strain"]["relation"].get(
-                        "culture", frozenset()
-                    ),
-                    designations=item["strain"]["relation"].get(
-                        "designation",
-                        frozenset(),
-                    ),
-                )
-                for item in data
-            )
-        except ValidationError as e:
-            logger.error("ValidationError parsing strain data: %s", data)
-            raise e
+        return _parse_strain_data(data)
 
 
 class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
@@ -204,22 +207,9 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
             for ix, model in strains.items()
             for name in normalize_strain_names(model.designations)
         }
-
-        ids: list[int] = self.get_strain_ids(list(known_names.keys()))
-        straininfo_data: tuple[Strain, ...] = self.get_strain_data(ids)
-
-        result: dict[int, Strain] = dict(strains)
-        for entry in straininfo_data:
-            names: frozenset[str] = entry.designations | frozenset(
-                cult.strain_number for cult in entry.cultures
-            )
-            try:
-                keyname = next(filter(lambda w: w in known_names, names))
-                result[known_names[keyname]] = entry.model_copy()
-            except StopIteration:
-                pass
-
-        return result
+        ids = self.get_strain_ids(list(known_names.keys()))
+        straininfo_data = self.get_strain_data(ids)
+        return _merge_strain_models(strains, straininfo_data, known_names)
 
     def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -246,21 +236,4 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
             data = self.request(self.strain_info_api_url(query))
         except ValueError:
             return ()
-
-        try:
-            return tuple(
-                Strain(
-                    **item["strain"],
-                    cultures=item["strain"]["relation"].get(
-                        "culture", frozenset()
-                    ),
-                    designations=item["strain"]["relation"].get(
-                        "designation",
-                        frozenset(),
-                    ),
-                )
-                for item in data
-            )
-        except ValidationError as e:
-            logger.error("ValidationError parsing strain data: %s", data)
-            raise e
+        return _parse_strain_data(data)
