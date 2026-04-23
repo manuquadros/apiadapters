@@ -78,7 +78,7 @@ class StrainInfoAdapterBase:
                 )
                 return []
             case _:
-                raise response.raise_for_status()
+                response.raise_for_status()
 
     @singledispatchmethod
     @staticmethod
