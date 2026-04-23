@@ -5,7 +5,7 @@ from functools import wraps
 from logging.handlers import RotatingFileHandler
 from threading import Semaphore as ThreadSemaphore
 from types import TracebackType
-from typing import Any, Callable, Self, TypeVar, overload
+from typing import Any, Callable, Self, TypeVar
 
 import httpx
 
