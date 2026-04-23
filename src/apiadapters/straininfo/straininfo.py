@@ -128,6 +128,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         exc_tb: TracebackType | None,
     ) -> None:
         await self.__flush_buffer()
+        await super().__aexit__(exc_type, exc_value, exc_tb)
 
     async def retrieve_strain_models(
         self,
