@@ -142,14 +142,11 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
                 pmid = article.findtext("PMID")
                 abstract = article.find(".//AbstractText")
 
-                if abstract is not None and getattr(abstract, "text", None):
-                    abstracts[pmid] = abstract.text + "".join(
-                        map(
-                            lambda node: etree.tostring(
-                                node, encoding="unicode"
-                            ),
-                            list(abstract),
-                        ),
+                if abstract is not None and etree.tostring(
+                    abstract, method="text", encoding="unicode"
+                ).strip():
+                    abstracts[pmid] = etree.tostring(
+                        abstract, encoding="unicode", with_tail=False
                     )
 
         return {_id: text for _id, text in abstracts.items() if text}
@@ -311,14 +308,11 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
                 pmid = article.findtext("PMID")
                 abstract = article.find(".//AbstractText")
 
-                if abstract is not None and getattr(abstract, "text", None):
-                    abstracts[pmid] = abstract.text + "".join(
-                        map(
-                            lambda node: etree.tostring(
-                                node, encoding="unicode"
-                            ),
-                            list(abstract),
-                        ),
+                if abstract is not None and etree.tostring(
+                    abstract, method="text", encoding="unicode"
+                ).strip():
+                    abstracts[pmid] = etree.tostring(
+                        abstract, encoding="unicode", with_tail=False
                     )
 
         return {_id: text for _id, text in abstracts.items() if text}
