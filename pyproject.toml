@@ -7,17 +7,13 @@ requires-python = ">=3.12, <4"
 license = "GPL-3.0-or-later"
 dependencies = [
   "cacheout>=0.16.0",
-  "d3types",
+  "d3types @ git+https://@github.com/manuquadros/d3types.git",
   "httpx>=0.28.1",
   "lxml>=5.3.2",
   "pandas>=2.3.2",
-  "xmlparser",
+  "xmlparser @ git+https://@github.com/manuquadros/xmlparser.git",
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.uv.sources]
-xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git", tag = "v0.1.0" }
-d3types = { git = "ssh://git@github.com/manuquadros/d3types.git", tag = "v0.1.0" }
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
