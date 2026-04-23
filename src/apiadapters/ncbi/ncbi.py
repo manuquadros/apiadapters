@@ -51,15 +51,9 @@ def extract_body(article: etree._Element, clean=False) -> str:
 
 
 def extract_pmid(article: etree._Element) -> str:
-    try:
-        pmid = article.xpath(
-            "//*[name()='article-id' and @pub-id-type='pmid']/text()"
-        )[0]
-    except ValueError:
-        print("no pmid")
-        raise
-    else:
-        return pmid
+    return article.xpath(
+        "//*[name()='article-id' and @pub-id-type='pmid']/text()"
+    )[0]
 
 
 def stringify(xml: etree._Element) -> str:
