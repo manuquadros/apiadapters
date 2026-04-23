@@ -112,6 +112,7 @@ class BaseAPIAdapter:
         self.rate_limit = rate_limit
         self.last_request_time: dict[str, float] = {}
         self.min_delay = 0.4
+        super().__init__()
 
 
 class AsyncAPIAdapter(BaseAPIAdapter):
