@@ -52,7 +52,7 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
         substrings = new_name.split("/")
 
         if len(substrings) > 1 or number_of_subs > 0:
-            standardized.update(map(lambda w: w.strip(), substrings))
+            standardized.update(map(str.strip, substrings))
 
     return set(strain_names) | standardized
 
