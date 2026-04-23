@@ -17,3 +17,8 @@ dependencies = [
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
