@@ -1,8 +1,11 @@
+import logging
 import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
 from typing import Any, Self, cast
+
+logger = logging.getLogger(__name__)
 
 import httpx
 import tinydb
@@ -166,7 +169,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         designations from such a name and try to retrieve data about them from
         StrainInfo.
         """
-        print("Flushing strain buffer")
+        logger.debug("Flushing strain buffer")
 
         indexed_buffer: dict[int, Strain] = {
             model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
@@ -236,7 +239,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
                 for item in data
             )
         except ValidationError as e:
-            print(data)
+            logger.error("ValidationError parsing strain data: %s", data)
             raise e
 
 
@@ -275,7 +278,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         designations from such a name and try to retrieve data about them from
         StrainInfo.
         """
-        print("Flushing strain buffer")
+        logger.debug("Flushing strain buffer")
 
         indexed_buffer: dict[int, Strain] = {
             model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
@@ -367,5 +370,5 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
                 for item in data
             )
         except ValidationError as e:
-            print(data)
+            logger.error("ValidationError parsing strain data: %s", data)
             raise e
