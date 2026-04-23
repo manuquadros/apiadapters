@@ -119,6 +119,21 @@ class NCBIAdapterBase:
             f"oai:pubmedcentral.nih.gov:{pmcid}&metadataPrefix=pmc_fm"
         )
 
+    @staticmethod
+    def _esearch_initial_url(encoded_query: str, retmax: int) -> str:
+        return (
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+            f"?db=pmc&term={encoded_query}&usehistory=y&retmax={retmax}"
+        )
+
+    @staticmethod
+    def _esearch_page_url(web_env: str, query_key: str, retstart: int, retmax: int) -> str:
+        return (
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+            f"?db=pmc&WebEnv={web_env}&query_key={query_key}"
+            f"&retstart={retstart}&retmax={retmax}"
+        )
+
 
 class NCBIAdapter(APIAdapter, NCBIAdapterBase):
     """Synchronous version of the NCBI adapter."""
@@ -241,32 +256,22 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         :return: Iterator of PubMed Central ids.
         """
         encoded_query = urllib.parse.quote_plus(query)
+        retmax = 500
+
+        result = self.request(self._esearch_initial_url(encoded_query, retmax))
+        web_env = result.xpath("//*[name()='WebEnv']/text()")[0]
+        query_key = result.xpath("//*[name()='QueryKey']/text()")[0]
+        count = int(result.xpath("//*[name()='Count']/text()")[0])
+
         retstart = 0
-        more = True
-        count: int | None = None
-
-        retmax = 20
-        while more:
-            url = (
-                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-                f"?db=pmc&term={encoded_query}&retstart={retstart}&retmax={retmax}"
-            )
-            result = self.request(url)
-
-            for id in result.xpath("//*[name()='Id']"):
-                yield id.text
-
-            if count is None:
-                count = int(
-                    result.xpath("//*[name()='eSearchResult']/*[name()='Count']")[
-                        0
-                    ].text
+        while retstart < count:
+            if retstart > 0:
+                result = self.request(
+                    self._esearch_page_url(web_env, query_key, retstart, retmax)
                 )
-
+            for id_elem in result.xpath("//*[name()='Id']"):
+                yield id_elem.text
             retstart += retmax
-
-            if retstart >= count:
-                more = False
 
 
 class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
@@ -394,29 +399,19 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         :return: Iterator of PubMed Central ids.
         """
         encoded_query = urllib.parse.quote_plus(query)
+        retmax = 500
+
+        result = await self.request(self._esearch_initial_url(encoded_query, retmax))
+        web_env = result.xpath("//*[name()='WebEnv']/text()")[0]
+        query_key = result.xpath("//*[name()='QueryKey']/text()")[0]
+        count = int(result.xpath("//*[name()='Count']/text()")[0])
+
         retstart = 0
-        more = True
-        count: int | None = None
-
-        retmax = 20
-        while more:
-            url = (
-                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-                f"?db=pmc&term={encoded_query}&retstart={retstart}&retmax={retmax}"
-            )
-            result = await self.request(url)
-
-            for id in result.xpath("//*[name()='Id']"):
-                yield id.text
-
-            if count is None:
-                count = int(
-                    result.xpath("//*[name()='eSearchResult']/*[name()='Count']")[
-                        0
-                    ].text
+        while retstart < count:
+            if retstart > 0:
+                result = await self.request(
+                    self._esearch_page_url(web_env, query_key, retstart, retmax)
                 )
-
+            for id_elem in result.xpath("//*[name()='Id']"):
+                yield id_elem.text
             retstart += retmax
-
-            if retstart >= count:
-                more = False

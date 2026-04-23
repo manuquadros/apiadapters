@@ -157,28 +157,35 @@ def test_response_handler_non200_raises(monkeypatch) -> None:
 
 
 def test_pmcids_for_query_paginates() -> None:
-    def make_esearch(count, ids):
+    def make_esearch(count, ids, web_env=None, query_key=None):
         ids_xml = "".join(f"<Id>{i}</Id>" for i in ids)
+        history = (
+            f"<WebEnv>{web_env}</WebEnv><QueryKey>{query_key}</QueryKey>"
+            if web_env
+            else ""
+        )
         return etree.fromstring(
-            f"<eSearchResult><Count>{count}</Count>"
+            f"<eSearchResult><Count>{count}</Count>{history}"
             f"<IdList>{ids_xml}</IdList></eSearchResult>".encode()
         )
 
-    call_count = 0
+    urls = []
 
     def fake_request(url):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            return make_esearch(25, range(1, 21))
-        return make_esearch(25, range(21, 26))
+        urls.append(url)
+        if len(urls) == 1:
+            return make_esearch(600, range(1, 501), web_env="NCID_abc", query_key="1")
+        return make_esearch(600, range(501, 601))
 
     adapter = ncbi.NCBIAdapter()
     with patch.object(adapter, "request", side_effect=fake_request):
         results = list(adapter.pmcids_for_query("bacteria"))
     adapter.client.close()
 
-    assert call_count == 2
-    assert len(results) == 25
+    assert len(urls) == 2
+    assert "usehistory=y" in urls[0]
+    assert "WebEnv=NCID_abc" in urls[1]
+    assert "query_key=1" in urls[1]
+    assert len(results) == 600
     assert results[0] == "1"
-    assert results[-1] == "25"
+    assert results[-1] == "600"
