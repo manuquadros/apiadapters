@@ -8,11 +8,11 @@ license = "GPL-3.0-or-later"
 dependencies = [
   "cacheout>=0.16.0",
   "pydantic>=2.0",
-  "d3types @ git+https://@github.com/manuquadros/d3types.git",
+  "d3types @ git+https://github.com/manuquadros/d3types.git",
   "httpx>=0.28.1",
   "lxml>=5.3.2",
   "pandas>=2.3.2",
-  "xmlparser @ git+https://@github.com/manuquadros/xmlparser.git",
+  "xmlparser @ git+https://github.com/manuquadros/xmlparser.git",
 ]
 
 [build-system]
@@ -20,6 +20,4 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [dependency-groups]
-dev = [
-    "pytest-cov>=7.1.0",
-]
+dev = ["pytest-cov>=7.1.0"]
