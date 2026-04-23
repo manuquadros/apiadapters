@@ -73,12 +73,11 @@ class NCBIAdapterBase:
     def __init__(self) -> None:
         self.logger = file_logger(filename="ncbi.log")
 
-        try:
-            self.api_key = os.environ["NCBI_API_KEY"]
-        except KeyError:
-            print(
-                "Continuing without API key. If you want to go faster, set the ",
-                "NCBI_API_KEY environment variable.",
+        self.api_key: str | None = os.environ.get("NCBI_API_KEY")
+        if not self.api_key:
+            self.logger.info(
+                "Continuing without API key. "
+                "Set NCBI_API_KEY to increase the rate limit."
             )
 
     def _response_handler(self, response: httpx.Response) -> etree._Element:
@@ -101,7 +100,7 @@ class NCBIAdapterBase:
             f"db=pubmed&id={pubmed_id}"
         )
 
-        if hasattr(self, "api_key"):
+        if self.api_key:
             url += f"&api_key={self.api_key}"
 
         return url
