@@ -1,22 +1,14 @@
 import logging
 import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
-from types import TracebackType
-from typing import Any, Self, cast
-
-logger = logging.getLogger(__name__)
+from typing import cast
 
 import httpx
-import tinydb
-from apiadapters import (
-    APIAdapter,
-    AsyncAPIAdapter,
-    BaseAPIAdapter,
-    stderr_logger,
-)
-from d3types import Strain, StrainRef
+from apiadapters import APIAdapter, AsyncAPIAdapter, stderr_logger
+from d3types import Strain
 from pydantic import ValidationError
-from tinydb import TinyDB
+
+logger = logging.getLogger(__name__)
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
 
@@ -61,10 +53,6 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
 
 class StrainInfoAdapterBase:
     """Base class with shared StrainInfo adapter functionality."""
-
-    def __init__(self) -> None:
-        self.buffer: set[StrainRef] = set()
-        self.storage: TinyDB
 
     @staticmethod
     def _response_handler(
@@ -112,23 +100,15 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
                 "Accept-Encoding": "gzip, deflate",
             },
         )
-        StrainInfoAdapterBase.__init__(self)
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        await self.__flush_buffer()
-        await super().__aexit__(exc_type, exc_value, exc_tb)
+    async def request(self, url: str) -> list[dict] | list[int]:
+        response = await super().request(url)
+        return self._response_handler(url, response)
 
     async def retrieve_strain_models(
         self,
         strains: MutableMapping[int, Strain],
     ) -> dict[int, Strain]:
-        # Map each possible strain designation from the normalized name of the model
-        # to the id of the model.
         known_names: dict[str, int] = {
             name: ix
             for ix, model in strains.items()
@@ -138,7 +118,6 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         ids: list[int] = await self.get_strain_ids(list(known_names.keys()))
         straininfo_data: tuple[Strain, ...] = await self.get_strain_data(ids)
 
-        # Update the _Strain models with Straininfo information if available
         for entry in straininfo_data:
             names: frozenset[str] = entry.designations | frozenset(
                 cult.strain_number for cult in entry.cultures
@@ -150,40 +129,6 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
                 pass
 
         return strains
-
-    async def __flush_buffer(self) -> None:
-        """Store _Strain models into self.storage.
-
-        Strain models might have unnormalized strain designations, like
-        'HBB / ATCC 27634 / DSM 579'. The method will extract the normalized
-        designations from such a name and try to retrieve data about them from
-        StrainInfo.
-        """
-        logger.debug("Flushing strain buffer")
-
-        indexed_buffer: dict[int, Strain] = {
-            model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
-            for model in self.buffer
-        }
-
-        indexed_buffer = await self.retrieve_strain_models(indexed_buffer)
-
-        for key, strain in indexed_buffer.items():
-            self.storage.table("strains").upsert(
-                tinydb.table.Document(strain.model_dump(), doc_id=key),
-            )
-
-        self.buffer = set()
-
-    async def store_strains(self, strains: Iterable[StrainRef]) -> None:
-        self.buffer.update(strains)
-
-        if len(self.buffer) > 100:
-            await self.__flush_buffer()
-
-    async def request(self, url: str) -> list[dict] | list[int]:
-        response = await super().request(url)
-        return self._response_handler(url, response)
 
     async def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -205,7 +150,6 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         """Retrieve StrainInfo data for the strain IDs given in the argument.
 
         :param query: IDs to be queried through the API.
-
         :return: Tuple containing Strain models encapsulating the information
             retrieved from StrainInfo.
         """
@@ -245,57 +189,15 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
                 "Accept-Encoding": "gzip, deflate",
             },
         )
-        StrainInfoAdapterBase.__init__(self)
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        self._flush_buffer()
-        super().__exit__(exc_type, exc_value, exc_tb)
 
     def request(self, url: str) -> list[dict] | list[int]:
         response = super().request(url)
         return self._response_handler(url, response)
 
-    def _flush_buffer(self) -> None:
-        """Store Strain models into self.storage.
-
-        Strain models might have unnormalized strain designations, like
-        'HBB / ATCC 27634 / DSM 579'. The method will extract the normalized
-        designations from such a name and try to retrieve data about them from
-        StrainInfo.
-        """
-        logger.debug("Flushing strain buffer")
-
-        indexed_buffer: dict[int, Strain] = {
-            model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
-            for model in self.buffer
-        }
-
-        indexed_buffer = self.retrieve_strain_models(indexed_buffer)
-
-        for key, strain in indexed_buffer.items():
-            self.storage.table("strains").upsert(
-                tinydb.table.Document(strain.model_dump(), doc_id=key),
-            )
-
-        self.buffer = set()
-
-    def store_strains(self, strains: Iterable[StrainRef]) -> None:
-        self.buffer.update(strains)
-
-        if len(self.buffer) > 100:
-            self._flush_buffer()
-
     def retrieve_strain_models(
         self,
         strains: MutableMapping[int, Strain],
     ) -> dict[int, Strain]:
-        # Map each possible strain designation from the normalized name of the model
-        # to the id of the model.
         known_names: dict[str, int] = {
             name: ix
             for ix, model in strains.items()
@@ -305,7 +207,6 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         ids: list[int] = self.get_strain_ids(list(known_names.keys()))
         straininfo_data: tuple[Strain, ...] = self.get_strain_data(ids)
 
-        # Update the Strain models with Straininfo information if available
         for entry in straininfo_data:
             names: frozenset[str] = entry.designations | frozenset(
                 cult.strain_number for cult in entry.cultures
@@ -336,7 +237,6 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         """Retrieve StrainInfo data for the strain IDs given in the argument.
 
         :param query: IDs to be queried through the API.
-
         :return: Tuple containing Strain models encapsulating the information
             retrieved from StrainInfo.
         """
