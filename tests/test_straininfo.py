@@ -69,17 +69,19 @@ def test_api_url_empty_raises() -> None:
 def test_response_handler_200_returns_json() -> None:
     req = httpx.Request("GET", "https://api.straininfo.dsmz.de/v1/test")
     response = httpx.Response(200, json=[{"id": 1}], request=req)
-    assert StrainInfoAdapterBase._response_handler(req.url, response) == [{"id": 1}]
+    assert StrainInfoAdapterBase._response_handler(str(req.url), response) == [
+        {"id": 1}
+    ]
 
 
 def test_response_handler_404_returns_empty() -> None:
     req = httpx.Request("GET", "https://api.straininfo.dsmz.de/v1/test/999")
     response = httpx.Response(404, content=b"Not Found", request=req)
-    assert StrainInfoAdapterBase._response_handler(req.url, response) == []
+    assert StrainInfoAdapterBase._response_handler(str(req.url), response) == []
 
 
 def test_response_handler_500_raises() -> None:
     req = httpx.Request("GET", "https://api.straininfo.dsmz.de/v1/test")
     response = httpx.Response(500, content=b"Server Error", request=req)
     with pytest.raises(httpx.HTTPStatusError):
-        StrainInfoAdapterBase._response_handler(req.url, response)
+        StrainInfoAdapterBase._response_handler(str(req.url), response)
