@@ -251,10 +251,11 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
         more = True
         count: int | None = None
 
+        retmax = 20
         while more:
             url = (
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-                f"?db=pmc&term={encoded_query}&retstart={retstart}"
+                f"?db=pmc&term={encoded_query}&retstart={retstart}&retmax={retmax}"
             )
             result = self.request(url)
 
@@ -268,7 +269,7 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
                     )[0].text
                 )
 
-            retstart += 20
+            retstart += retmax
 
             if retstart >= count:
                 more = False
@@ -428,10 +429,11 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         more = True
         count: int | None = None
 
+        retmax = 20
         while more:
             url = (
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-                f"?db=pmc&term={encoded_query}&retstart={retstart}"
+                f"?db=pmc&term={encoded_query}&retstart={retstart}&retmax={retmax}"
             )
             result = await self.request(url)
 
@@ -445,7 +447,7 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
                     )[0].text
                 )
 
-            retstart += 20
+            retstart += retmax
 
             if retstart >= count:
                 more = False
