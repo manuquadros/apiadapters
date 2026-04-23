@@ -1,5 +1,5 @@
 from io import TextIOBase
-from pandas import pd
+import pandas as pd
 
 
 class NCBIDump(TextIOBase):
