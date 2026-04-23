@@ -346,6 +346,7 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
         return {
             "abstract": extract_abstract(root),
             "body": extract_body(root),
+            "pubmed_id": extract_pmid(root),
         }
 
     async def pmc_record(self, pmc_id: str) -> etree._Element:
