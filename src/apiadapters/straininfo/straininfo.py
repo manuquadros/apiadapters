@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import Collection, Iterable, MutableMapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import cast
 
 import httpx
@@ -107,7 +107,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
     async def retrieve_strain_models(
         self,
-        strains: MutableMapping[int, Strain],
+        strains: Mapping[int, Strain],
     ) -> dict[int, Strain]:
         known_names: dict[str, int] = {
             name: ix
@@ -118,17 +118,18 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         ids: list[int] = await self.get_strain_ids(list(known_names.keys()))
         straininfo_data: tuple[Strain, ...] = await self.get_strain_data(ids)
 
+        result: dict[int, Strain] = dict(strains)
         for entry in straininfo_data:
             names: frozenset[str] = entry.designations | frozenset(
                 cult.strain_number for cult in entry.cultures
             )
             try:
                 keyname = next(filter(lambda w: w in known_names, names))
-                strains[known_names[keyname]] = entry.model_copy()
+                result[known_names[keyname]] = entry.model_copy()
             except StopIteration:
                 pass
 
-        return strains
+        return result
 
     async def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -196,7 +197,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
     def retrieve_strain_models(
         self,
-        strains: MutableMapping[int, Strain],
+        strains: Mapping[int, Strain],
     ) -> dict[int, Strain]:
         known_names: dict[str, int] = {
             name: ix
@@ -207,17 +208,18 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         ids: list[int] = self.get_strain_ids(list(known_names.keys()))
         straininfo_data: tuple[Strain, ...] = self.get_strain_data(ids)
 
+        result: dict[int, Strain] = dict(strains)
         for entry in straininfo_data:
             names: frozenset[str] = entry.designations | frozenset(
                 cult.strain_number for cult in entry.cultures
             )
             try:
                 keyname = next(filter(lambda w: w in known_names, names))
-                strains[known_names[keyname]] = entry.model_copy()
+                result[known_names[keyname]] = entry.model_copy()
             except StopIteration:
                 pass
 
-        return strains
+        return result
 
     def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:

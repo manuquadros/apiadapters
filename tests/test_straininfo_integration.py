@@ -69,6 +69,7 @@ async def test_async_retrieve_strain_models_roundtrip() -> None:
     strains = {0: seed_strain}
     async with AsyncStrainInfoAdapter() as adapter:
         result = await adapter.retrieve_strain_models(strains)
+    assert strains[0] is seed_strain
     enriched = result[0]
     assert enriched is not seed_strain
     assert isinstance(enriched, Strain)
