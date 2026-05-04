@@ -2,21 +2,51 @@ import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Any, Self, cast
+from typing import Any, NamedTuple, Self, cast
 
 import httpx
 import tinydb
-from apiadapters import (
-    APIAdapter,
-    AsyncAPIAdapter,
-    BaseAPIAdapter,
-    stderr_logger,
-)
-from d3types import Strain, StrainRef
-from pydantic import ValidationError
+from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter, stderr_logger
+from pydantic import Annotated, BaseModel, Field, ValidationError
 from tinydb import TinyDB
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
+
+
+class Taxon(BaseModel):
+    name: str
+    lpsn: int | None = None
+    ncbi: int | None = None
+
+
+class Strain(BaseModel):
+    id: int | None = Field(
+        description="The id of the strain on StrainInfo, if found.",
+        default=None,
+    )
+    doi: str | None = None
+    merged: list[int] | None = None
+    bacdive: int | None = Field(description="ID of the strain on BacDive", default=None)
+    taxon: Taxon | None = Field(
+        description="Species to which the strain corresponds, if available",
+        default=None,
+    )
+    cultures: Annotated[
+        frozenset[Culture],
+        Field(description="Cultures related to the strain", default=frozenset()),
+        PlainSerializer(list),
+    ]
+    designations: Annotated[
+        StringSet,
+        Field(
+            description="Designations other than the culture identifiers",
+        ),
+    ]
+
+
+class StrainRef(NamedTuple):
+    id: int
+    name: str
 
 
 def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
@@ -73,9 +103,7 @@ class StrainInfoAdapterBase:
             case 200:
                 return response.json()
             case 404:
-                stderr_logger().error(
-                    "%s not found on StrainInfo.", url.split("/")[-1]
-                )
+                stderr_logger().error("%s not found on StrainInfo.", url.split("/")[-1])
                 return []
             case _:
                 raise response.raise_for_status()
@@ -209,9 +237,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
         return []
 
-    async def get_strain_data(
-        self, query: int | Iterable[int]
-    ) -> tuple[Strain, ...]:
+    async def get_strain_data(self, query: int | Iterable[int]) -> tuple[Strain, ...]:
         """Retrieve StrainInfo data for the strain IDs given in the argument.
 
         :param query: IDs to be queried through the API.
@@ -228,9 +254,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
             return tuple(
                 Strain(
                     **item["strain"],
-                    cultures=item["strain"]["relation"].get(
-                        "culture", frozenset()
-                    ),
+                    cultures=item["strain"]["relation"].get("culture", frozenset()),
                     designations=item["strain"]["relation"].get(
                         "designation",
                         frozenset(),
@@ -359,9 +383,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
             return tuple(
                 Strain(
                     **item["strain"],
-                    cultures=item["strain"]["relation"].get(
-                        "culture", frozenset()
-                    ),
+                    cultures=item["strain"]["relation"].get("culture", frozenset()),
                     designations=item["strain"]["relation"].get(
                         "designation",
                         frozenset(),
