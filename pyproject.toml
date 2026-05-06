@@ -10,13 +10,9 @@ dependencies = [
   "httpx>=0.28.1",
   "lxml>=5.3.2",
   "pandas>=2.3.2",
-  "xmlparser",
+  "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.uv.sources]
-xmlparser = { git = "ssh://git@github.com/manuquadros/xmlparser.git", tag = "v0.1.0" }
-d3types = { git = "ssh://git@github.com/manuquadros/d3types.git", tag = "v0.1.0" }
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
