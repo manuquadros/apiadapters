@@ -2,15 +2,65 @@ import re
 from collections.abc import Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Any, NamedTuple, Self, cast
+from typing import Annotated, Any, NamedTuple, Self, TypeAlias, cast
 
 import httpx
 import tinydb
 from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter, stderr_logger
-from pydantic import Annotated, BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, PlainSerializer, ValidationError
 from tinydb import TinyDB
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
+
+StringSet: TypeAlias = Annotated[
+    frozenset[str],
+    Field(default=frozenset()),
+    PlainSerializer(sorted),
+]
+
+
+class Taxon(BaseModel):
+    name: str
+    lpsn: int | None = None
+    ncbi: int | None = None
+
+
+class Culture(BaseModel, frozen=True):
+    siid: int = Field(
+        description="The id of the culture on StrainInfo",
+        validation_alias="id",
+    )
+    strain_number: str
+
+
+class Strain(BaseModel):
+    id: int | None = Field(
+        description="The id of the strain on StrainInfo, if found.",
+        default=None,
+    )
+    doi: str | None = None
+    merged: list[int] | None = None
+    bacdive: int | None = Field(description="ID of the strain on BacDive", default=None)
+    taxon: Taxon | None = Field(
+        description="Species to which the strain corresponds, if available",
+        default=None,
+    )
+    cultures: Annotated[
+        frozenset[Culture],
+        Field(description="Cultures related to the strain", default=frozenset()),
+        PlainSerializer(list),
+    ]
+    designations: Annotated[
+        StringSet,
+        Field(
+            description="Designations other than the culture identifiers",
+        ),
+    ]
+
+
+class StrainRef(NamedTuple):
+    id: int
+    name: str
 
 
 class Taxon(BaseModel):
