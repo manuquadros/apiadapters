@@ -21,3 +21,11 @@ jobs:
 
       - name: Run unit tests
         run: pdm run pytest tests/
+
+      - name: Check requirements.txt is up to date
+        run: |
+          pdm export --no-hashes -o /tmp/requirements.txt
+          if ! diff -q /tmp/requirements.txt requirements.txt > /dev/null; then
+            echo "::error::requirements.txt is out of date. Run 'pdm export --no-hashes -o requirements.txt' and commit the result."
+            exit 1
+          fi
