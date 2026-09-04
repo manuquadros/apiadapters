@@ -65,7 +65,7 @@ def retry_if_too_many_requests(is_async: bool = True):
                         and exception.response.status_code == 429
                     ):
                         await sleep(min(30 * (2**retry_count), 3600))
-                    return True
+                        return True
                 return False
 
             @wraps(func)
@@ -88,7 +88,7 @@ def retry_if_too_many_requests(is_async: bool = True):
                         and exception.response.status_code == 429
                     ):
                         time.sleep(min(30 * (2**retry_count), 3600))
-                    return True
+                        return True
                 return False
 
             @wraps(func)
