@@ -9,6 +9,7 @@ from types import TracebackType
 from typing import Any, Callable, Self, TypeVar, overload
 
 import httpx
+from tenacity import AsyncRetrying, Retrying, retry_if_exception, stop_after_attempt
 
 T = TypeVar("T")
 
@@ -54,55 +55,60 @@ def stderr_logger(level: int = logging.DEBUG) -> logging.Logger:
     return ologger
 
 
+def _is_too_many_requests(exception: BaseException) -> bool:
+    return (
+        isinstance(exception, httpx.HTTPStatusError)
+        and exception.response.status_code == 429
+    )
+
+
+def _backoff_seconds(retry_state: Any) -> float:
+    """Honor Retry-After when present, otherwise back off exponentially."""
+    exc = retry_state.outcome.exception() if retry_state.outcome else None
+    retry_after = (
+        exc.response.headers.get("retry-after")
+        if isinstance(exc, httpx.HTTPStatusError)
+        else None
+    )
+    if retry_after is not None:
+        try:
+            return float(retry_after)
+        except ValueError:
+            pass
+    return min(30 * (2**retry_state.attempt_number), 3600)
+
+
 def retry_if_too_many_requests(is_async: bool = True):
+    """Retry a request on HTTP 429; any other error propagates immediately."""
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         if is_async:
 
-            async def handler(exception: Exception, retry_count: int) -> bool:
-                if isinstance(exception, httpx.HTTPStatusError):
-                    if (
-                        hasattr(exception, "response")
-                        and exception.response.status_code == 429
-                    ):
-                        await sleep(min(30 * (2**retry_count), 3600))
-                        return True
-                return False
-
             @wraps(func)
             async def async_wrapped(*args: Any, **kwargs: Any) -> T:
-                retry_count = 0
-                while True:
-                    try:
-                        return await func(*args, **kwargs)
-                    except httpx.HTTPError as e:
-                        retry_count += 1
-                        if not await handler(e, retry_count) or retry_count > 5:
-                            raise
+                retrying = AsyncRetrying(
+                    retry=retry_if_exception(_is_too_many_requests),
+                    wait=_backoff_seconds,
+                    stop=stop_after_attempt(6),
+                    sleep=sleep,
+                    reraise=True,
+                )
+                return await retrying(func, *args, **kwargs)
 
-        else:
+            return async_wrapped
 
-            def sync_handler(exception: Exception, retry_count: int) -> bool:
-                if isinstance(exception, httpx.HTTPStatusError):
-                    if (
-                        hasattr(exception, "response")
-                        and exception.response.status_code == 429
-                    ):
-                        time.sleep(min(30 * (2**retry_count), 3600))
-                        return True
-                return False
+        @wraps(func)
+        def sync_wrapped(*args: Any, **kwargs: Any) -> T:
+            retrying = Retrying(
+                retry=retry_if_exception(_is_too_many_requests),
+                wait=_backoff_seconds,
+                stop=stop_after_attempt(6),
+                sleep=time.sleep,
+                reraise=True,
+            )
+            return retrying(func, *args, **kwargs)
 
-            @wraps(func)
-            def sync_wrapped(*args: Any, **kwargs: Any) -> T:
-                retry_count = 0
-                while True:
-                    try:
-                        return func(*args, **kwargs)
-                    except httpx.HTTPError as e:
-                        retry_count += 1
-                        if not sync_handler(e, retry_count) or retry_count > 5:
-                            raise
-
-        return async_wrapped if is_async else sync_wrapped
+        return sync_wrapped
 
     return decorator
 

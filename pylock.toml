@@ -680,6 +680,19 @@ marker = "\"default\" in dependency_groups"
 dependencies = []
 
 [[packages]]
+name = "tenacity"
+version = "9.1.4"
+requires-python = ">=3.10"
+sdist = {name = "tenacity-9.1.4.tar.gz", url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hashes = {sha256 = "adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a"}}
+wheels = [
+    {name = "tenacity-9.1.4-py3-none-any.whl",url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl",hashes = {sha256 = "6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55"}},
+]
+marker = "\"default\" in dependency_groups"
+
+[packages.tool.pdm]
+dependencies = []
+
+[[packages]]
 name = "tinydb"
 version = "4.9.0"
 requires-python = "<4,>=3.10"
@@ -761,7 +774,7 @@ commit-id = "eacd40ed068028a80fba0ad1967ef7be9910baeb"
 requested-revision = "master"
 
 [tool.pdm]
-hashes = {sha256 = "897ebb3089034cc1217a48e20c7966b46d73b2aee6aa4a3996e9f79505af7a70"}
+hashes = {sha256 = "810619fae771f2f2781c3d5e4d13210bc3c44548c703f8077c1223eb2612e255"}
 
 [[tool.pdm.targets]]
 requires_python = "~=3.12"
