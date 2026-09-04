@@ -16,6 +16,13 @@ dependencies = [
   "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
 ]
 
+[dependency-groups]
+dev = [
+  "pytest>=8.4.2",
+  "pytest-asyncio>=1.2.0",
+  "pytest-cov>=7.1.0",
+]
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
