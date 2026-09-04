@@ -1,0 +1,53 @@
+name: Verify lock files
+
+on:
+  pull_request:
+    paths:
+      - pyproject.toml
+      - pdm.lock
+      - pylock.toml
+      - uv.lock
+      - .github/workflows/lockfiles.yml
+  push:
+    branches: [main]
+    paths:
+      - pyproject.toml
+      - pdm.lock
+      - pylock.toml
+      - uv.lock
+      - .github/workflows/lockfiles.yml
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Regenerate pdm.lock
+        # inherit_metadata is required for the pylock.toml export below; pdm's
+        # uv-backed resolver silently drops it, so pin the native resolver.
+        run: |
+          pdm config -l use_uv false
+          pdm lock --strategy inherit_metadata
+
+      - name: Regenerate pylock.toml
+        run: pdm export -f pylock -o pylock.toml
+
+      - name: Regenerate uv.lock
+        run: uv lock
+
+      - name: Fail if any lock file is out of date
+        run: |
+          if ! git diff --exit-code -- pdm.lock pylock.toml uv.lock; then
+            echo "::error::One or more lock files are out of date. Run 'pdm lock --strategy inherit_metadata', 'pdm export -f pylock -o pylock.toml' and 'uv lock' locally and commit the result."
+            exit 1
+          fi
