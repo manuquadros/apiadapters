@@ -24,13 +24,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pin pdm/uv versions to match what contributors run locally: an
+      # unpinned tool can bump the lock file format itself (e.g. pdm.lock's
+      # lock_version) and make this check fail on drift that isn't real.
       - name: Set up PDM
         uses: pdm-project/setup-pdm@v4
         with:
           python-version: "3.12"
+          version: "2.27.0"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.16"
 
       - name: Regenerate lock files
         run: scripts/lock.sh
