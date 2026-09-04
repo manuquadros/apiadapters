@@ -1,7 +1,6 @@
 import pytest
 import pytest_asyncio
-from apiadapters.straininfo.straininfo import AsyncStrainInfoAdapter, StrainInfoAdapter
-from d3types import Strain
+from apiadapters.straininfo import AsyncStrainInfoAdapter, Strain, StrainInfoAdapter
 
 KNOWN_DESIGNATION = "DSM 498"
 
