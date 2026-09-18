@@ -1,14 +1,12 @@
 import re
-from collections.abc import Collection, Iterable, MutableMapping, Sequence
+from collections.abc import Callable, Collection, Iterable, MutableMapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
 from typing import Annotated, Any, NamedTuple, Self, TypeAlias, cast
 
 import httpx
-import tinydb
 from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter, stderr_logger
 from pydantic import BaseModel, Field, PlainSerializer, ValidationError
-from tinydb import TinyDB
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
 
@@ -140,9 +138,9 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
 class StrainInfoAdapterBase:
     """Base class with shared StrainInfo adapter functionality."""
 
-    def __init__(self) -> None:
+    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None) -> None:
         self.buffer: set[StrainRef] = set()
-        self.storage: TinyDB
+        self.sink = sink
 
     @staticmethod
     def _response_handler(
@@ -188,7 +186,7 @@ class StrainInfoAdapterBase:
 
 
 class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
-    def __init__(self):
+    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None):
         AsyncAPIAdapter.__init__(
             self,
             headers={
@@ -197,7 +195,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
                 "Accept-Encoding": "gzip, deflate",
             },
         )
-        StrainInfoAdapterBase.__init__(self)
+        StrainInfoAdapterBase.__init__(self, sink=sink)
 
     async def __aexit__(
         self,
@@ -240,7 +238,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         return strains
 
     async def __flush_buffer(self) -> None:
-        """Store _Strain models into self.storage.
+        """Resolve the buffered strain refs and hand them to self.sink.
 
         Strain models might have unnormalized strain designations, like
         'HBB / ATCC 27634 / DSM 579'. The method will extract the normalized
@@ -256,10 +254,10 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
         indexed_buffer = await self.retrieve_strain_models(indexed_buffer)
 
-        for key, strain in indexed_buffer.items():
-            self.storage.table("strains").upsert(
-                tinydb.table.Document(strain.model_dump(), doc_id=key),
-            )
+        if indexed_buffer:
+            if self.sink is None:
+                raise RuntimeError("Strains were buffered but no sink was configured.")
+            self.sink(indexed_buffer)
 
         self.buffer = set()
 
@@ -320,7 +318,7 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
     """Synchronous version of the StrainInfo adapter."""
 
-    def __init__(self):
+    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None):
         APIAdapter.__init__(
             self,
             headers={
@@ -329,7 +327,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
                 "Accept-Encoding": "gzip, deflate",
             },
         )
-        StrainInfoAdapterBase.__init__(self)
+        StrainInfoAdapterBase.__init__(self, sink=sink)
 
     def __exit__(
         self,
@@ -345,7 +343,7 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         return self._response_handler(url, response)
 
     def _flush_buffer(self) -> None:
-        """Store Strain models into self.storage.
+        """Resolve the buffered strain refs and hand them to self.sink.
 
         Strain models might have unnormalized strain designations, like
         'HBB / ATCC 27634 / DSM 579'. The method will extract the normalized
@@ -361,10 +359,10 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
         indexed_buffer = self.retrieve_strain_models(indexed_buffer)
 
-        for key, strain in indexed_buffer.items():
-            self.storage.table("strains").upsert(
-                tinydb.table.Document(strain.model_dump(), doc_id=key),
-            )
+        if indexed_buffer:
+            if self.sink is None:
+                raise RuntimeError("Strains were buffered but no sink was configured.")
+            self.sink(indexed_buffer)
 
         self.buffer = set()
 

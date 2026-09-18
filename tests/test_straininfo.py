@@ -1,7 +1,11 @@
 import httpx
 import pytest
 from apiadapters.straininfo.straininfo import (
+    AsyncStrainInfoAdapter,
+    Strain,
+    StrainInfoAdapter,
     StrainInfoAdapterBase,
+    StrainRef,
     normalize_strain_names,
 )
 
@@ -85,3 +89,67 @@ def test_response_handler_500_raises() -> None:
     response = httpx.Response(500, content=b"Server Error", request=req)
     with pytest.raises(httpx.HTTPStatusError):
         StrainInfoAdapterBase._response_handler(str(req.url), response)
+
+
+def _strain_refs(n: int) -> list[StrainRef]:
+    return [StrainRef(id=i, name=f"strain-{i}") for i in range(n)]
+
+
+@pytest.mark.asyncio
+async def test_async_store_strains_flush_calls_sink() -> None:
+    received: list[dict[int, Strain]] = []
+
+    async def fake_retrieve_strain_models(strains):
+        return strains
+
+    adapter = AsyncStrainInfoAdapter(sink=received.append)
+    adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
+
+    for ref in _strain_refs(101):
+        await adapter.store_strains([ref])
+
+    assert len(received) == 1
+    assert len(received[0]) == 101
+    assert all(isinstance(strain, Strain) for strain in received[0].values())
+
+
+@pytest.mark.asyncio
+async def test_async_flush_without_sink_raises() -> None:
+    async def fake_retrieve_strain_models(strains):
+        return strains
+
+    adapter = AsyncStrainInfoAdapter()
+    adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError):
+        for ref in _strain_refs(101):
+            await adapter.store_strains([ref])
+
+
+def test_sync_store_strains_flush_calls_sink() -> None:
+    received: list[dict[int, Strain]] = []
+
+    def fake_retrieve_strain_models(strains):
+        return strains
+
+    adapter = StrainInfoAdapter(sink=received.append)
+    adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
+
+    for ref in _strain_refs(101):
+        adapter.store_strains([ref])
+
+    assert len(received) == 1
+    assert len(received[0]) == 101
+    assert all(isinstance(strain, Strain) for strain in received[0].values())
+
+
+def test_sync_flush_without_sink_raises() -> None:
+    def fake_retrieve_strain_models(strains):
+        return strains
+
+    adapter = StrainInfoAdapter()
+    adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError):
+        for ref in _strain_refs(101):
+            adapter.store_strains([ref])
