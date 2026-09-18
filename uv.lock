@@ -43,7 +43,6 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "tenacity" },
-    { name = "tinydb" },
     { name = "xmlparser" },
 ]
 
@@ -62,7 +61,6 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.3.2" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "tenacity", specifier = ">=9.1.2" },
-    { name = "tinydb", specifier = ">=4.9.0" },
     { name = "xmlparser", git = "https://github.com/manuquadros/xmlparser.git?rev=master" },
 ]
 
@@ -830,15 +828,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
-]
-
-[[package]]
-name = "tinydb"
-version = "4.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/01/e9/d30dd8b1b88a75ec3e464eb81feee514ccf97f50bd306d198959e6733210/tinydb-4.9.0.tar.gz", hash = "sha256:6928b1fa785186bda7952a0ba05aaeedc883ede565ca9c7d608de44e5e75de70", size = 31987, upload-time = "2026-08-06T15:03:44.78Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/ef/321cb77b49bc26f36ed1c85d55cd8e80f8f81e5e183b769abf67386c257a/tinydb-4.9.0-py3-none-any.whl", hash = "sha256:111f1f680978a1b7c534d698dd1d76739ff31c74c27fd26a111140b51d8b35d6", size = 25731, upload-time = "2026-08-06T15:03:43.582Z" },
 ]
 
 [[package]]

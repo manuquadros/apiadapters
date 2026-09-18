@@ -12,7 +12,6 @@ dependencies = [
   "pandas>=2.3.2",
   "pydantic>=2.13.5",
   "tenacity>=9.1.2",
-  "tinydb>=4.9.0",
   "xmlparser @ git+https://github.com/manuquadros/xmlparser.git@master",
 ]
 
