@@ -1,6 +1,6 @@
 [project]
 name = "apiadapters"
-version = "0.1.0"
+dynamic = ["version"]
 description = "API adapters for services external and internal to D3"
 readme = "README.md"
 requires-python = ">=3.12, <4"
@@ -20,8 +20,26 @@ dev = [
   "pytest>=8.4.2",
   "pytest-asyncio>=1.2.0",
   "pytest-cov>=7.1.0",
+  "git-cliff>=2.13.1",
 ]
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.metadata]
+# xmlparser is a git dependency pinned to a branch, not a PyPI release (see
+# AGENTS.md); hatchling refuses to build direct-reference dependencies
+# without this.
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/apiadapters"]
+
+[tool.pdm.scripts]
+changelog = "git-cliff --output CHANGELOG.md"
+next-version = "git-cliff --bumped-version"
+release = "python scripts/release.py"
