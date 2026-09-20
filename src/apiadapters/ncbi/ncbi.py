@@ -116,6 +116,17 @@ class NCBIAdapterBase:
 
         return url
 
+    def pubmed_record_url(self, pubmed_id: str) -> str:
+        url = (
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
+            f"db=pubmed&id={pubmed_id}&retmode=xml"
+        )
+
+        if hasattr(self, "api_key"):
+            url += f"&api_key={self.api_key}"
+
+        return url
+
     @staticmethod
     def record_url(pmcid: str) -> str:
         return (
@@ -219,6 +230,17 @@ class NCBIAdapter(APIAdapter, NCBIAdapterBase):
             "&metadataPrefix=pmc"
         )
         return self.request(url)
+
+    def pubmed_record(self, pubmed_id: str) -> etree._Element:
+        """Retrieve the PubMed record for a particular PubMed ID.
+
+        Unlike :meth:`pmc_record`, this works for articles that have no PMC
+        entry, and so returns metadata without a full text body.
+
+        :param pubmed_id: PubMed ID for record retrieval.
+        :return: _Element containing the record.
+        """
+        return self.request(self.pubmed_record_url(pubmed_id))
 
     def fetch_fulltext_articles(
         self,
@@ -383,6 +405,17 @@ class AsyncNCBIAdapter(AsyncAPIAdapter, NCBIAdapterBase):
             "&metadataPrefix=pmc"
         )
         return await self.request(url)
+
+    async def pubmed_record(self, pubmed_id: str) -> etree._Element:
+        """Retrieve the PubMed record for a particular PubMed ID.
+
+        Unlike :meth:`pmc_record`, this works for articles that have no PMC
+        entry, and so returns metadata without a full text body.
+
+        :param pubmed_id: PubMed ID for record retrieval.
+        :return: _Element containing the record.
+        """
+        return await self.request(self.pubmed_record_url(pubmed_id))
 
     async def fetch_fulltext_articles(
         self,

@@ -58,3 +58,13 @@ def test_extract_abstract() -> None:
 
 def test_extract_body() -> None:
     assert ncbi.extract_body(xml, clean=True) == ncbi.stringify(body)
+
+
+def test_pubmed_record_url_targets_efetch() -> None:
+    url = ncbi.NCBIAdapter().pubmed_record_url("17323951")
+    assert url.startswith(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
+    )
+    assert "db=pubmed" in url
+    assert "id=17323951" in url
+    assert "retmode=xml" in url
