@@ -68,3 +68,10 @@ def test_pubmed_record_url_targets_efetch() -> None:
     assert "db=pubmed" in url
     assert "id=17323951" in url
     assert "retmode=xml" in url
+
+
+def test_api_key_from_env_reaches_summary_url(monkeypatch) -> None:
+    monkeypatch.setenv("NCBI_API_KEY", "deadbeef")
+    adapter = ncbi.NCBIAdapter()
+    assert adapter.api_key == "deadbeef"
+    assert "&api_key=deadbeef" in adapter.summary_url("17323951")

@@ -117,9 +117,10 @@ class BaseAPIAdapter:
     """Base class for API adapters with common functionality."""
 
     def __init__(
-        self, headers: dict[str, str] = {}, rate_limit: int = 3
+        self, headers: dict[str, str] | None = None, rate_limit: int = 3
     ) -> None:
-        self.headers = headers
+        super().__init__()
+        self.headers = headers if headers is not None else {}
         self.rate_limit = rate_limit
         self.last_request_time: dict[str, float] = {}
         self.min_delay = 0.4
