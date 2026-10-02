@@ -1,59 +1,68 @@
 import re
-from collections.abc import Callable, Collection, Iterable, MutableMapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from functools import singledispatchmethod
 from types import TracebackType
-from typing import Annotated, Any, NamedTuple, Self, TypeAlias, cast
+from typing import Any, NamedTuple, NotRequired, TypedDict, cast
 
 import httpx
 from apiadapters import APIAdapter, AsyncAPIAdapter, BaseAPIAdapter, stderr_logger
-from pydantic import BaseModel, Field, PlainSerializer, ValidationError
 
 api_root = "https://api.straininfo.dsmz.de/v1/"
 
-StringSet: TypeAlias = Annotated[
-    frozenset[str],
-    Field(default=frozenset()),
-    PlainSerializer(sorted),
-]
 
-
-class Taxon(BaseModel):
+class TaxonRecord(TypedDict):
     name: str
-    lpsn: int | None = None
-    ncbi: int | None = None
+    lpsn: NotRequired[int]
+    ncbi: NotRequired[int]
 
 
-class Culture(BaseModel, frozen=True):
-    siid: int = Field(
-        description="The id of the culture on StrainInfo",
-        validation_alias="id",
-    )
+class CultureRecord(TypedDict):
+    id: int
     strain_number: str
+    origin: NotRequired[str]
 
 
-class Strain(BaseModel):
-    id: int | None = Field(
-        description="The id of the strain on StrainInfo, if found.",
-        default=None,
-    )
-    doi: str | None = None
-    merged: list[int] | None = None
-    bacdive: int | None = Field(description="ID of the strain on BacDive", default=None)
-    taxon: Taxon | None = Field(
-        description="Species to which the strain corresponds, if available",
-        default=None,
-    )
-    cultures: Annotated[
-        frozenset[Culture],
-        Field(description="Cultures related to the strain", default=frozenset()),
-        PlainSerializer(list),
+class RelationRecord(TypedDict):
+    designation: NotRequired[list[str]]
+    culture: NotRequired[list[CultureRecord]]
+
+
+class StrainRecord(TypedDict):
+    """A strain object from the StrainInfo v1 ``data/strain/max/`` endpoint."""
+
+    id: int
+    relation: RelationRecord
+    doi: NotRequired[str]
+    merged: NotRequired[list[int]]
+    bacdive: NotRequired[int]
+    taxon: NotRequired[TaxonRecord]
+
+
+def _record_names(record: StrainRecord) -> list[str]:
+    relation = record["relation"]
+    return relation.get("designation", []) + [
+        culture["strain_number"] for culture in relation.get("culture", [])
     ]
-    designations: Annotated[
-        StringSet,
-        Field(
-            description="Designations other than the culture identifiers",
-        ),
-    ]
+
+
+def _index_names(designations: Mapping[int, Collection[str]]) -> dict[str, int]:
+    return {
+        name: ix
+        for ix, names in designations.items()
+        for name in normalize_strain_names(names)
+    }
+
+
+def _match_records(
+    known_names: Mapping[str, int],
+    records: Iterable[StrainRecord],
+) -> dict[int, StrainRecord]:
+    matched: dict[int, StrainRecord] = {}
+    for record in records:
+        keyname = next(filter(known_names.__contains__, _record_names(record)), None)
+        if keyname is not None:
+            matched[known_names[keyname]] = record
+    return matched
 
 
 class StrainRef(NamedTuple):
@@ -102,7 +111,9 @@ def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
 class StrainInfoAdapterBase:
     """Base class with shared StrainInfo adapter functionality."""
 
-    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None) -> None:
+    def __init__(
+        self, sink: Callable[[dict[int, StrainRecord]], None] | None = None
+    ) -> None:
         self.buffer: set[StrainRef] = set()
         self.sink = sink
 
@@ -150,7 +161,7 @@ class StrainInfoAdapterBase:
 
 
 class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
-    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None):
+    def __init__(self, sink: Callable[[dict[int, StrainRecord]], None] | None = None):
         AsyncAPIAdapter.__init__(
             self,
             headers={
@@ -175,31 +186,12 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
     async def retrieve_strain_models(
         self,
-        strains: MutableMapping[int, Strain],
-    ) -> dict[int, Strain]:
-        # Map each possible strain designation from the normalized name of the model
-        # to the id of the model.
-        known_names: dict[str, int] = {
-            name: ix
-            for ix, model in strains.items()
-            for name in normalize_strain_names(model.designations)
-        }
-
-        ids: list[int] = await self.get_strain_ids(list(known_names.keys()))
-        straininfo_data: tuple[Strain, ...] = await self.get_strain_data(ids)
-
-        # Update the _Strain models with Straininfo information if available
-        for entry in straininfo_data:
-            names: frozenset[str] = entry.designations | frozenset(
-                cult.strain_number for cult in entry.cultures
-            )
-            try:
-                keyname = next(filter(lambda w: w in known_names, names))
-                strains[known_names[keyname]] = entry.model_copy()
-            except StopIteration:
-                pass
-
-        return strains
+        designations: Mapping[int, Collection[str]],
+    ) -> dict[int, StrainRecord]:
+        """Return the StrainInfo records resolved for each key's designations."""
+        known_names = _index_names(designations)
+        ids = await self.get_strain_ids(list(known_names))
+        return _match_records(known_names, await self.get_strain_data(ids))
 
     async def __flush_buffer(self) -> None:
         """Resolve the buffered strain refs and hand them to self.sink.
@@ -211,12 +203,9 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
         """
         print("Flushing strain buffer")
 
-        indexed_buffer: dict[int, Strain] = {
-            model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
-            for model in self.buffer
-        }
-
-        indexed_buffer = await self.retrieve_strain_models(indexed_buffer)
+        indexed_buffer = await self.retrieve_strain_models(
+            {ref.id: normalize_strain_names(ref.name) for ref in self.buffer}
+        )
 
         if indexed_buffer:
             if self.sink is None:
@@ -245,40 +234,24 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
         return []
 
-    async def get_strain_data(self, query: int | Iterable[int]) -> tuple[Strain, ...]:
-        """Retrieve StrainInfo data for the strain IDs given in the argument.
-
-        :param query: IDs to be queried through the API.
-
-        :return: Tuple containing Strain models encapsulating the information
-            retrieved from StrainInfo.
-        """
+    async def get_strain_data(
+        self, query: int | Iterable[int]
+    ) -> tuple[StrainRecord, ...]:
+        """Retrieve the StrainInfo records for the strain IDs given in the argument."""
         try:
             data = await self.request(self.strain_info_api_url(query))
         except ValueError:
             return ()
 
-        try:
-            return tuple(
-                Strain(
-                    **item["strain"],
-                    cultures=item["strain"]["relation"].get("culture", frozenset()),
-                    designations=item["strain"]["relation"].get(
-                        "designation",
-                        frozenset(),
-                    ),
-                )
-                for item in data
-            )
-        except ValidationError as e:
-            print(data)
-            raise e
+        return tuple(
+            item["strain"] for item in cast(list[dict[str, StrainRecord]], data)
+        )
 
 
 class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
     """Synchronous version of the StrainInfo adapter."""
 
-    def __init__(self, sink: Callable[[dict[int, Strain]], None] | None = None):
+    def __init__(self, sink: Callable[[dict[int, StrainRecord]], None] | None = None):
         APIAdapter.__init__(
             self,
             headers={
@@ -312,12 +285,9 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
         """
         print("Flushing strain buffer")
 
-        indexed_buffer: dict[int, Strain] = {
-            model.id: Strain(designations=normalize_strain_names(model.name))  # type: ignore[call-arg]
-            for model in self.buffer
-        }
-
-        indexed_buffer = self.retrieve_strain_models(indexed_buffer)
+        indexed_buffer = self.retrieve_strain_models(
+            {ref.id: normalize_strain_names(ref.name) for ref in self.buffer}
+        )
 
         if indexed_buffer:
             if self.sink is None:
@@ -334,31 +304,12 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
     def retrieve_strain_models(
         self,
-        strains: MutableMapping[int, Strain],
-    ) -> dict[int, Strain]:
-        # Map each possible strain designation from the normalized name of the model
-        # to the id of the model.
-        known_names: dict[str, int] = {
-            name: ix
-            for ix, model in strains.items()
-            for name in normalize_strain_names(model.designations)
-        }
-
-        ids: list[int] = self.get_strain_ids(list(known_names.keys()))
-        straininfo_data: tuple[Strain, ...] = self.get_strain_data(ids)
-
-        # Update the Strain models with Straininfo information if available
-        for entry in straininfo_data:
-            names: frozenset[str] = entry.designations | frozenset(
-                cult.strain_number for cult in entry.cultures
-            )
-            try:
-                keyname = next(filter(lambda w: w in known_names, names))
-                strains[known_names[keyname]] = entry.model_copy()
-            except StopIteration:
-                pass
-
-        return strains
+        designations: Mapping[int, Collection[str]],
+    ) -> dict[int, StrainRecord]:
+        """Return the StrainInfo records resolved for each key's designations."""
+        known_names = _index_names(designations)
+        ids = self.get_strain_ids(list(known_names))
+        return _match_records(known_names, self.get_strain_data(ids))
 
     def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
@@ -374,31 +325,13 @@ class StrainInfoAdapter(APIAdapter, StrainInfoAdapterBase):
 
         return []
 
-    def get_strain_data(self, query: int | Iterable[int]) -> tuple[Strain, ...]:
-        """Retrieve StrainInfo data for the strain IDs given in the argument.
-
-        :param query: IDs to be queried through the API.
-
-        :return: Tuple containing Strain models encapsulating the information
-            retrieved from StrainInfo.
-        """
+    def get_strain_data(self, query: int | Iterable[int]) -> tuple[StrainRecord, ...]:
+        """Retrieve the StrainInfo records for the strain IDs given in the argument."""
         try:
             data = self.request(self.strain_info_api_url(query))
         except ValueError:
             return ()
 
-        try:
-            return tuple(
-                Strain(
-                    **item["strain"],
-                    cultures=item["strain"]["relation"].get("culture", frozenset()),
-                    designations=item["strain"]["relation"].get(
-                        "designation",
-                        frozenset(),
-                    ),
-                )
-                for item in data
-            )
-        except ValidationError as e:
-            print(data)
-            raise e
+        return tuple(
+            item["strain"] for item in cast(list[dict[str, StrainRecord]], data)
+        )

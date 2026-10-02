@@ -1,10 +1,14 @@
+import copy
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 from apiadapters.straininfo.straininfo import (
     AsyncStrainInfoAdapter,
-    Strain,
     StrainInfoAdapter,
     StrainInfoAdapterBase,
+    StrainRecord,
     StrainRef,
     normalize_strain_names,
 )
@@ -95,12 +99,16 @@ def _strain_refs(n: int) -> list[StrainRef]:
     return [StrainRef(id=i, name=f"strain-{i}") for i in range(n)]
 
 
+def _record(ix: int) -> StrainRecord:
+    return {"id": ix, "relation": {"designation": [f"strain-{ix}"]}}
+
+
 @pytest.mark.asyncio
 async def test_async_store_strains_flush_calls_sink() -> None:
-    received: list[dict[int, Strain]] = []
+    received: list[dict[int, StrainRecord]] = []
 
-    async def fake_retrieve_strain_models(strains):
-        return strains
+    async def fake_retrieve_strain_models(designations):
+        return {ix: _record(ix) for ix in designations}
 
     adapter = AsyncStrainInfoAdapter(sink=received.append)
     adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
@@ -110,7 +118,7 @@ async def test_async_store_strains_flush_calls_sink() -> None:
 
     assert len(received) == 1
     assert len(received[0]) == 101
-    assert all(isinstance(strain, Strain) for strain in received[0].values())
+    assert received[0] == {ix: _record(ix) for ix in range(101)}
 
 
 @pytest.mark.asyncio
@@ -127,10 +135,10 @@ async def test_async_flush_without_sink_raises() -> None:
 
 
 def test_sync_store_strains_flush_calls_sink() -> None:
-    received: list[dict[int, Strain]] = []
+    received: list[dict[int, StrainRecord]] = []
 
-    def fake_retrieve_strain_models(strains):
-        return strains
+    def fake_retrieve_strain_models(designations):
+        return {ix: _record(ix) for ix in designations}
 
     adapter = StrainInfoAdapter(sink=received.append)
     adapter.retrieve_strain_models = fake_retrieve_strain_models  # type: ignore[method-assign]
@@ -140,7 +148,7 @@ def test_sync_store_strains_flush_calls_sink() -> None:
 
     assert len(received) == 1
     assert len(received[0]) == 101
-    assert all(isinstance(strain, Strain) for strain in received[0].values())
+    assert received[0] == {ix: _record(ix) for ix in range(101)}
 
 
 def test_sync_flush_without_sink_raises() -> None:
@@ -153,3 +161,55 @@ def test_sync_flush_without_sink_raises() -> None:
     with pytest.raises(RuntimeError):
         for ref in _strain_refs(101):
             adapter.store_strains([ref])
+
+
+FIXTURE = json.loads((Path(__file__).parent / "straininfo_11469.json").read_text())
+RECORD = FIXTURE[0]["strain"]
+
+
+def _fake_request(url: str) -> list[dict] | list[int]:
+    if "search/strain/str_des/" in url:
+        return [RECORD["id"]]
+    return FIXTURE
+
+
+async def _async_fake_request(url: str) -> list[dict] | list[int]:
+    return _fake_request(url)
+
+
+def test_sync_get_strain_data_returns_api_records() -> None:
+    adapter = StrainInfoAdapter()
+    adapter.request = _fake_request  # type: ignore[method-assign]
+    assert adapter.get_strain_data(RECORD["id"]) == (RECORD,)
+
+
+@pytest.mark.asyncio
+async def test_async_get_strain_data_returns_api_records() -> None:
+    adapter = AsyncStrainInfoAdapter()
+    adapter.request = _async_fake_request  # type: ignore[method-assign]
+    assert await adapter.get_strain_data(RECORD["id"]) == (RECORD,)
+
+
+@pytest.mark.parametrize("designation", ["NCTC 10538", "K-12"])
+def test_sync_retrieve_strain_models_returns_resolved_records(
+    designation: str,
+) -> None:
+    query = {7: {designation}, 8: {"no-such-strain"}}
+    before = copy.deepcopy(query)
+    adapter = StrainInfoAdapter()
+    adapter.request = _fake_request  # type: ignore[method-assign]
+    assert adapter.retrieve_strain_models(query) == {7: RECORD}
+    assert query == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("designation", ["NCTC 10538", "K-12"])
+async def test_async_retrieve_strain_models_returns_resolved_records(
+    designation: str,
+) -> None:
+    query = {7: {designation}, 8: {"no-such-strain"}}
+    before = copy.deepcopy(query)
+    adapter = AsyncStrainInfoAdapter()
+    adapter.request = _async_fake_request  # type: ignore[method-assign]
+    assert await adapter.retrieve_strain_models(query) == {7: RECORD}
+    assert query == before

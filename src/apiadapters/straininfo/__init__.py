@@ -1,6 +1,6 @@
 from .straininfo import (
     AsyncStrainInfoAdapter,
-    Strain,
     StrainInfoAdapter,
+    StrainRecord,
     normalize_strain_names,
 )

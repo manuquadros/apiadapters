@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from apiadapters.straininfo import AsyncStrainInfoAdapter, Strain, StrainInfoAdapter
+from apiadapters.straininfo import AsyncStrainInfoAdapter, StrainInfoAdapter
 
 KNOWN_DESIGNATION = "DSM 498"
 
@@ -15,20 +15,20 @@ def test_get_strain_ids_returns_ints_for_known_designation() -> None:
 
 
 @pytest.mark.integration
-def test_get_strain_data_returns_strain_models() -> None:
+def test_get_strain_data_returns_strain_records() -> None:
     with StrainInfoAdapter() as adapter:
         ids = adapter.get_strain_ids(KNOWN_DESIGNATION)
         strains = adapter.get_strain_data(ids)
     assert len(strains) > 0
-    assert all(isinstance(s, Strain) for s in strains)
+    assert all(isinstance(s, dict) and isinstance(s["id"], int) for s in strains)
 
 
 @pytest.mark.integration
-def test_strain_model_has_designations() -> None:
+def test_strain_record_has_designations() -> None:
     with StrainInfoAdapter() as adapter:
         ids = adapter.get_strain_ids(KNOWN_DESIGNATION)
         strains = adapter.get_strain_data(ids)
-    assert any(len(s.designations) > 0 for s in strains)
+    assert any(s["relation"].get("designation") for s in strains)
 
 
 @pytest.mark.integration
@@ -50,25 +50,20 @@ async def test_async_get_strain_ids_returns_ints_for_known_designation() -> None
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_async_get_strain_data_returns_strain_models() -> None:
+async def test_async_get_strain_data_returns_strain_records() -> None:
     async with AsyncStrainInfoAdapter() as adapter:
         ids = await adapter.get_strain_ids(KNOWN_DESIGNATION)
         strains = await adapter.get_strain_data(ids)
     assert len(strains) > 0
-    assert all(isinstance(s, Strain) for s in strains)
+    assert all(isinstance(s, dict) and isinstance(s["id"], int) for s in strains)
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_async_retrieve_strain_models_roundtrip() -> None:
-    """Full roundtrip: seed a dict with a known strain, retrieve enriched models."""
-    seed_strain = Strain(
-        designations=frozenset({KNOWN_DESIGNATION}), cultures=frozenset()
-    )
-    strains = {0: seed_strain}
+    """Full roundtrip: look up a known designation, retrieve its record."""
+    designations = {0: {KNOWN_DESIGNATION}}
     async with AsyncStrainInfoAdapter() as adapter:
-        result = await adapter.retrieve_strain_models(strains)
-    assert strains[0] is seed_strain
-    enriched = result[0]
-    assert enriched is not seed_strain
-    assert isinstance(enriched, Strain)
+        result = await adapter.retrieve_strain_models(designations)
+    assert designations == {0: {KNOWN_DESIGNATION}}
+    assert isinstance(result[0]["id"], int)
