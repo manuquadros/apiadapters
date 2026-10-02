@@ -61,42 +61,6 @@ class StrainRef(NamedTuple):
     name: str
 
 
-class Taxon(BaseModel):
-    name: str
-    lpsn: int | None = None
-    ncbi: int | None = None
-
-
-class Strain(BaseModel):
-    id: int | None = Field(
-        description="The id of the strain on StrainInfo, if found.",
-        default=None,
-    )
-    doi: str | None = None
-    merged: list[int] | None = None
-    bacdive: int | None = Field(description="ID of the strain on BacDive", default=None)
-    taxon: Taxon | None = Field(
-        description="Species to which the strain corresponds, if available",
-        default=None,
-    )
-    cultures: Annotated[
-        frozenset[Culture],
-        Field(description="Cultures related to the strain", default=frozenset()),
-        PlainSerializer(list),
-    ]
-    designations: Annotated[
-        StringSet,
-        Field(
-            description="Designations other than the culture identifiers",
-        ),
-    ]
-
-
-class StrainRef(NamedTuple):
-    id: int
-    name: str
-
-
 def normalize_strain_names(strain_names: str | Collection[str]) -> set[str]:
     """Attempt to normalize a collection of strain designations.
 
@@ -266,10 +230,6 @@ class AsyncStrainInfoAdapter(AsyncAPIAdapter, StrainInfoAdapterBase):
 
         if len(self.buffer) > 100:
             await self.__flush_buffer()
-
-    async def request(self, url: str) -> list[dict] | list[int]:
-        response = await super().request(url)
-        return self._response_handler(url, response)
 
     async def get_strain_ids(self, query: str | Sequence[str]) -> list[int]:
         if not query:
